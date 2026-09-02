@@ -1,0 +1,30 @@
+{
+  "name": "farmwise-frontend",
+  "version": "0.0.1",
+  "description": "FarmWise - Agricultural Management Platform (Frontend)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src --ext .js,.jsx",
+    "format": "prettier --write \"src/**/*.{js,jsx,css}\""
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.1.1",
+    "eslint": "^8.42.0",
+    "eslint-plugin-react": "^7.32.2",
+    "prettier": "^2.8.8",
+    "vite": "^8.2.2"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead"
+  ]
+}

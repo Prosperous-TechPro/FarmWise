@@ -1,0 +1,28 @@
+{
+  "name": "farmwise",
+  "version": "0.0.1",
+  "description": "FarmWise - Agricultural Management Platform",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "database"
+  ],
+  "scripts": {
+    "setup": "npm install && npm --workspace=frontend install && npm --workspace=backend install && npm --workspace=database install",
+    "dev": "npm run dev --workspace=frontend & npm run dev --workspace=backend",
+    "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
+    "test": "npm test --workspace=frontend && npm test --workspace=backend",
+    "lint": "npm run lint --workspace=frontend && npm run lint --workspace=backend"
+  },
+  "keywords": [
+    "agriculture",
+    "farm",
+    "management",
+    "pigs",
+    "crops",
+    "livestock"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}

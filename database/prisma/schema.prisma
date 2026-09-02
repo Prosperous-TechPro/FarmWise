@@ -1,0 +1,2273 @@
+// This is your Prisma schema file
+// Database Architecture for FarmWise Sprint 2
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+/// User account status
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+/// Farm operational status
+enum FarmStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+/// Field status
+enum FieldStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+/// Crop cycle status - represents the lifecycle of a crop
+enum CropCycleStatus {
+  PLANNING
+  PREPARED
+  PLANNED
+  LAND_PREPARATION
+  PLANTED
+  GROWING
+  HARVESTING
+  COMPLETED
+  ABANDONED
+  CANCELLED
+}
+
+/// Livestock sex
+enum LivestockSex {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+/// Livestock status
+enum LivestockStatus {
+  ACTIVE
+  INACTIVE
+  SOLD
+  DECEASED
+  TRANSFERRED
+  CULLED
+  QUARANTINED
+}
+
+/// Acquisition types for livestock
+enum AcquisitionType {
+  BORN_ON_FARM
+  PURCHASED
+  TRANSFERRED_IN
+  OTHER
+}
+
+/// Livestock event types
+enum LivestockEventType {
+  BIRTH
+  ACQUISITION
+  WEIGHT_MEASUREMENT
+  FEEDING
+  VACCINATION
+  MEDICATION
+  TREATMENT
+  MATING
+  PREGNANCY
+  FARROWING
+  MORTALITY
+  SALE
+  TRANSFER
+  OTHER
+}
+
+/// Breeding event status
+enum BreedingStatus {
+  PLANNED
+  MATING_COMPLETED
+  PREGNANCY_CONFIRMED
+  FARROWING_EXPECTED
+  FARROWING_COMPLETED
+  FAILED
+  CANCELLED
+}
+
+/// Health record types
+enum HealthRecordType {
+  OBSERVATION
+  VACCINATION
+  MEDICATION
+  TREATMENT
+  DIAGNOSIS
+  SYMPTOM
+}
+
+/// Farm activity categories
+enum ActivityCategory {
+  PLANTING
+  WEEDING
+  FERTILIZING
+  SPRAYING
+  WATERING
+  HARVESTING
+  FEEDING
+  VACCINATION
+  TREATMENT
+  MAINTENANCE
+  INSPECTION
+  OTHER
+}
+
+enum ActivityStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum ActivityPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ObservationCategory {
+  HEALTH
+  CROP
+  LAND
+  WATERING
+  FEEDING
+  SECURITY
+  WEATHER
+  OTHER
+}
+
+enum ObservationSeverity {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// Area unit types
+enum AreaUnit {
+  ACRE
+  HECTARE
+  SQUARE_METER
+  SQUARE_KILOMETER
+}
+
+/// Weight unit types
+enum WeightUnit {
+  KILOGRAM
+  GRAM
+  POUND
+  OUNCE
+}
+
+/// Volume/Quantity unit types
+enum QuantityUnit {
+  KILOGRAM
+  GRAM
+  LITER
+  MILLILITER
+  BAG
+  PIECE
+  BUNCH
+  BASKET
+  OTHER
+}
+
+/// Currency types - initially supporting Ghana Cedi
+enum Currency {
+  GHS // Ghana Cedi
+  USD
+  EUR
+}
+
+/// Cost classification for expenses
+enum CostType {
+  DIRECT_COST
+  INDIRECT_COST
+  CAPITAL_EXPENDITURE
+  OTHER
+}
+
+/// Payment methods supported across farm operations
+enum PaymentMethod {
+  CASH
+  CARD
+  MOBILE_MONEY
+  BANK_TRANSFER
+  CHEQUE
+  OTHER
+}
+
+/// Transaction lifecycle status
+enum TransactionStatus {
+  DRAFT
+  CONFIRMED
+  PAID
+  CANCELLED
+  VOIDED
+}
+
+/// Sale item classification
+enum SaleItemType {
+  PRODUCE
+  LIVESTOCK
+  INPUT
+  OTHER
+}
+
+/// Financial loss categories
+enum LossCategory {
+  WEATHER
+  DISEASE
+  FEED
+  THEFT
+  SPOILAGE
+  DAMAGE
+  MORTALITY
+  OTHER
+}
+
+/// Budget planning periods
+enum BudgetPeriod {
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM
+}
+
+/// Expense categories
+enum ExpenseCategory {
+  FEED
+  SEED
+  FERTILIZER
+  PESTICIDE
+  HERBICIDE
+  MEDICATION
+  LABOR
+  EQUIPMENT
+  MAINTENANCE
+  UTILITIES
+  TRANSPORTATION
+  STORAGE
+  OTHER
+}
+
+/// Input categories
+enum InputCategory {
+  SEED
+  FERTILIZER
+  PESTICIDE
+  HERBICIDE
+  FEED
+  MEDICATION
+  EQUIPMENT
+  OTHER
+}
+
+/// Generic inventory categories supported across farm operations
+enum InventoryCategory {
+  FEED
+  SEEDS
+  PLANTING_MATERIAL
+  FERTILIZER
+  HERBICIDE
+  PESTICIDE
+  FUNGICIDE
+  MEDICATION
+  VACCINE
+  VETERINARY_SUPPLIES
+  FUEL
+  FARM_CHEMICAL
+  PACKAGING
+  CLEANING_SUPPLIES
+  EQUIPMENT
+  TOOLS
+  SPARE_PARTS
+  BUILDING_MATERIAL
+  OTHER
+}
+
+/// Supported units for stock, batches, and storage records
+enum InventoryUnit {
+  KG
+  GRAM
+  LITRE
+  MILLILITRE
+  BAG
+  SACK
+  BOTTLE
+  PACK
+  BOX
+  PIECE
+  UNIT
+  TON
+  HECTARE
+  ACRE
+  DOSE
+  OTHER
+}
+
+/// Ledger movement types for inventory history
+enum InventoryMovementType {
+  RECEIPT
+  ISSUE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  TRANSFER_IN
+  TRANSFER_OUT
+  RETURN
+  WASTE
+  EXPIRY
+  LOSS
+}
+
+/// Stock statuses used for alerting and monitoring
+enum InventoryStockStatus {
+  NORMAL
+  LOW_STOCK
+  OUT_OF_STOCK
+  OVERSTOCK
+  EXPIRING_SOON
+  EXPIRED
+}
+
+/// Alert windows used for expiry warnings
+enum InventoryAlertThreshold {
+  DAYS_30
+  DAYS_14
+  DAYS_7
+}
+
+/// Inventory transfer workflow statuses
+enum InventoryTransferStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+/// Inventory loss or adjustment reasons
+enum InventoryLossReason {
+  WASTE
+  LOSS
+  THEFT
+  EXPIRY
+  DAMAGE
+  OTHER
+}
+
+/// OTP purposes - distinguishes different OTP use cases
+enum OtpPurpose {
+  ACCOUNT_VERIFICATION
+  PASSWORD_RESET
+  LOGIN_2FA
+  CHANGE_EMAIL
+  CHANGE_PHONE
+}
+
+/// OTP delivery channels
+enum OtpChannel {
+  EMAIL
+  SMS
+}
+
+enum NotificationSeverity {
+  INFO
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+}
+
+enum AlertStatus {
+  DETECTED
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  DISMISSED
+}
+
+enum DevicePlatform {
+  ANDROID
+  IOS
+  WEB
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+}
+
+enum DomainEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  DEAD_LETTER
+}
+
+// ============================================
+// CORE AUTHENTICATION & AUTHORIZATION
+// ============================================
+
+/// User entity - represents an individual user
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique @db.VarChar(255)
+  phone        String? @unique @db.VarChar(20)
+  firstName    String  @db.VarChar(100)
+  lastName     String  @db.VarChar(100)
+  passwordHash String  @db.VarChar(255)
+
+  /// Account status
+  status UserStatus @default(PENDING_VERIFICATION)
+
+  /// Verification flags
+  emailVerified    Boolean   @default(false)
+  emailVerifiedAt  DateTime?
+  phoneVerified    Boolean   @default(false)
+  phoneVerifiedAt  DateTime?
+  twoFactorEnabled Boolean   @default(false)
+
+  /// Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  /// Relations
+  userRoles               UserRole[]
+  ownedFarms              Farm[]
+  farmMembers             FarmMember[]
+  createdActivities       FarmActivity[]            @relation("FarmActivityCreator")
+  assignedActivities      FarmActivity[]            @relation("FarmActivityAssignee")
+  activityTaskAssignments FarmActivityTask[]        @relation("FarmActivityTaskAssignee")
+  activityObservations    FarmActivityObservation[] @relation("FarmActivityObservationAuthor")
+  notifications           Notification[]
+  notificationPreferences NotificationPreference[]
+  notificationDevices     NotificationDevice[]
+  notificationDeliveries  NotificationDelivery[]
+  acknowledgedAlerts      FarmAlert[]               @relation("AlertAcknowledger")
+  resolvedAlerts          FarmAlert[]               @relation("AlertResolver")
+  expenses                Expense[]
+  sales                   Sale[]
+  lossRecords             FinancialLoss[]
+  budgets                 Budget[]
+  budgetItems             BudgetItem[]
+  auditLogs               AuditLog[]
+  productionRecords       ProductionRecord[]
+  harvests                Harvest[]
+  otpVerifications        OtpVerification[]
+  authSessions            AuthSession[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+}
+
+/// Role entity - represents user roles in the system
+model Role {
+  id          String  @id @default(cuid())
+  name        String  @unique @db.VarChar(100)
+  description String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@index([name])
+}
+
+/// Permission entity - granular permissions in the system
+model Permission {
+  id          String  @id @default(cuid())
+  code        String  @unique @db.VarChar(100)
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+  category    String? @db.VarChar(50)
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  rolePermissions RolePermission[]
+
+  @@index([code])
+  @@index([category])
+}
+
+/// User-Role junction table
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+
+  /// Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+/// Role-Permission junction table
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+
+  /// Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// ============================================
+// FARM & ORGANIZATION
+// ============================================
+
+/// Farm entity - represents a farm operation
+model Farm {
+  id          String  @id @default(cuid())
+  ownerId     String
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+
+  /// Location information
+  region    String?  @db.VarChar(100)
+  district  String?  @db.VarChar(100)
+  country   String?  @db.VarChar(100)
+  latitude  Decimal? @db.Decimal(10, 8)
+  longitude Decimal? @db.Decimal(11, 8)
+
+  /// Farm status
+  status FarmStatus @default(ACTIVE)
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  owner                  User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  farmMembers            FarmMember[]
+  fields                 Field[]
+  livestock              Livestock[]
+  cropCycles             CropCycle[]
+  activityTypes          FarmActivityType[]
+  farmActivities         FarmActivity[]
+  inputs                 Input[]
+  expenses               Expense[]
+  sales                  Sale[]
+  saleItems              SaleItem[]
+  lossRecords            FinancialLoss[]
+  budgets                Budget[]
+  budgetItems            BudgetItem[]
+  productionRecords      ProductionRecord[]
+  harvests               Harvest[]
+  produce                Produce[]
+  auditLogs              AuditLog[]
+  notifications          Notification[]
+  alerts                 FarmAlert[]
+  domainEvents           DomainEvent[]
+  suppliers              Supplier[]
+  storageLocations       StorageLocation[]
+  inventoryItems         InventoryItem[]
+  inventoryBatches       InventoryBatch[]
+  inventoryReceipts      InventoryReceipt[]
+  inventoryIssues        InventoryIssue[]
+  inventoryTransfers     InventoryTransfer[]
+  inventoryAdjustments   InventoryAdjustment[]
+  inventoryWaste         InventoryWaste[]
+  inventoryLosses        InventoryLoss[]
+  inventoryMovements     InventoryMovement[]
+  inventoryStockBalances InventoryStockBalance[]
+
+  @@index([ownerId])
+  @@index([status])
+}
+
+/// FarmMember - represents membership relationship between users and farms
+model FarmMember {
+  id     String @id @default(cuid())
+  userId String
+  farmId String
+
+  /// Member role/status (e.g., OWNER, MANAGER, WORKER)
+  role   String @db.VarChar(50)
+  status String @default("ACTIVE") @db.VarChar(50)
+
+  /// Timestamps
+  joinedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, farmId])
+  @@index([userId])
+  @@index([farmId])
+}
+
+/// Field - represents physical fields within a farm
+model Field {
+  id          String  @id @default(cuid())
+  farmId      String
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+
+  /// Area information
+  area     Decimal  @db.Decimal(10, 2)
+  areaUnit AreaUnit @default(HECTARE)
+
+  /// Location information
+  latitude  Decimal? @db.Decimal(10, 8)
+  longitude Decimal? @db.Decimal(11, 8)
+
+  /// Status
+  status FieldStatus @default(ACTIVE)
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm       Farm        @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  cropCycles CropCycle[]
+
+  @@index([farmId])
+  @@index([status])
+}
+
+/// FarmActivityType - reusable catalog of common farm tasks and operations.
+model FarmActivityType {
+  id          String           @id @default(cuid())
+  farmId      String
+  name        String           @db.VarChar(120)
+  category    ActivityCategory
+  description String?          @db.Text
+  isActive    Boolean          @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farm       Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  activities FarmActivity[]
+
+  @@unique([farmId, name])
+  @@index([farmId])
+  @@index([category])
+}
+
+// ============================================
+// CROPS & CROP CYCLES
+// ============================================
+
+/// Crop - represents crop types (Maize, Cassava, Tomato, etc.)
+model Crop {
+  id          String  @id @default(cuid())
+  name        String  @unique @db.VarChar(100)
+  description String? @db.Text
+
+  /// Optional growing information
+  averageGrowingDays Int? /// Average days to maturity
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  cropVarieties CropVariety[]
+  cropCycles    CropCycle[]
+  produce       Produce[]
+
+  @@index([name])
+}
+
+/// CropVariety - supports variety-level configuration for each crop
+model CropVariety {
+  id           String  @id @default(cuid())
+  cropId       String
+  name         String  @db.VarChar(150)
+  description  String? @db.Text
+  maturityDays Int?
+  notes        String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  crop       Crop        @relation(fields: [cropId], references: [id], onDelete: Cascade)
+  cropCycles CropCycle[]
+  produce    Produce[]
+
+  @@unique([cropId, name])
+  @@index([cropId])
+  @@index([name])
+}
+
+/// CropCycle - represents a planting cycle for a specific crop
+model CropCycle {
+  id        String  @id @default(cuid())
+  farmId    String
+  fieldId   String
+  cropId    String
+  varietyId String?
+
+  /// Cycle information
+  cycleName           String?         @db.VarChar(150)
+  season              String?         @db.VarChar(50)
+  status              CropCycleStatus @default(PLANNED)
+  plantedArea         Decimal?        @db.Decimal(10, 2)
+  areaUnit            AreaUnit        @default(HECTARE)
+  plantingDate        DateTime?
+  expectedHarvestDate DateTime?
+  actualHarvestDate   DateTime?
+
+  /// Yield information (populated after harvest)
+  expectedYield Decimal?     @db.Decimal(10, 2)
+  actualYield   Decimal?     @db.Decimal(10, 2)
+  yieldUnit     QuantityUnit @default(KILOGRAM)
+
+  /// Notes
+  notes String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm              Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  field             Field               @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+  crop              Crop                @relation(fields: [cropId], references: [id], onDelete: Restrict)
+  variety           CropVariety?        @relation(fields: [varietyId], references: [id], onDelete: SetNull)
+  activities        CropCycleActivity[]
+  inputs            CropCycleInput[]
+  observations      CropObservation[]
+  growthRecords     CropGrowthRecord[]
+  expenses          Expense[]
+  sales             Sale[]
+  productionRecords ProductionRecord[]
+  harvests          Harvest[]
+  produce           Produce[]
+
+  @@index([farmId])
+  @@index([fieldId])
+  @@index([cropId])
+  @@index([varietyId])
+  @@index([status])
+  @@index([plantingDate])
+  @@index([expectedHarvestDate])
+}
+
+model CropCycleActivity {
+  id            String    @id @default(cuid())
+  cropCycleId   String
+  userId        String?
+  activityType  String
+  description   String    @db.Text
+  activityDate  DateTime
+  activityTime  DateTime?
+  quantity      Decimal?  @db.Decimal(10, 2)
+  unit          String?   @db.VarChar(50)
+  notes         String?   @db.Text
+  mediaUrl      String?   @db.VarChar(500)
+  costReference String?   @db.VarChar(255)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cropCycle CropCycle @relation(fields: [cropCycleId], references: [id], onDelete: Cascade)
+
+  @@index([cropCycleId])
+  @@index([activityDate])
+  @@index([activityType])
+}
+
+model CropCycleInput {
+  id              String    @id @default(cuid())
+  cropCycleId     String
+  inputType       String    @db.VarChar(80)
+  inputName       String    @db.VarChar(200)
+  quantity        Decimal   @db.Decimal(10, 2)
+  unit            String    @db.VarChar(50)
+  applicationDate DateTime
+  applicationTime DateTime?
+  appliedBy       String?   @db.VarChar(255)
+  supplier        String?   @db.VarChar(255)
+  batchLot        String?   @db.VarChar(255)
+  notes           String?   @db.Text
+  costReference   String?   @db.VarChar(255)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cropCycle CropCycle @relation(fields: [cropCycleId], references: [id], onDelete: Cascade)
+
+  @@index([cropCycleId])
+  @@index([applicationDate])
+  @@index([inputType])
+}
+
+model CropObservation {
+  id              String   @id @default(cuid())
+  cropCycleId     String
+  observationDate DateTime
+  observation     String   @db.Text
+  severity        String   @db.VarChar(30)
+  workerId        String?
+  notes           String?  @db.Text
+  mediaUrl        String?  @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cropCycle CropCycle @relation(fields: [cropCycleId], references: [id], onDelete: Cascade)
+
+  @@index([cropCycleId])
+  @@index([observationDate])
+  @@index([severity])
+}
+
+model CropGrowthRecord {
+  id               String   @id @default(cuid())
+  cropCycleId      String
+  observationDate  DateTime
+  growthStage      String?  @db.VarChar(80)
+  plantHeight      Decimal? @db.Decimal(10, 2)
+  plantCount       Int?
+  generalCondition String?  @db.VarChar(100)
+  notes            String?  @db.Text
+  mediaUrl         String?  @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cropCycle CropCycle @relation(fields: [cropCycleId], references: [id], onDelete: Cascade)
+
+  @@index([cropCycleId])
+  @@index([observationDate])
+  @@index([growthStage])
+}
+
+model Produce {
+  id          String  @id @default(cuid())
+  farmId      String
+  cropCycleId String
+  cropId      String
+  varietyId   String?
+  harvestId   String?
+
+  quantity    Decimal   @db.Decimal(10, 2)
+  unit        String    @db.VarChar(50)
+  grade       String?   @db.VarChar(50)
+  status      String    @default("HARVESTED") @db.VarChar(50)
+  lotNumber   String?   @db.VarChar(120)
+  location    String?   @db.VarChar(255)
+  produceDate DateTime?
+  notes       String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farm      Farm         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  cropCycle CropCycle    @relation(fields: [cropCycleId], references: [id], onDelete: Cascade)
+  crop      Crop         @relation(fields: [cropId], references: [id], onDelete: Restrict)
+  variety   CropVariety? @relation(fields: [varietyId], references: [id], onDelete: SetNull)
+  harvest   Harvest?     @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+
+  @@index([farmId])
+  @@index([cropCycleId])
+  @@index([cropId])
+  @@index([status])
+  @@index([produceDate])
+}
+
+// ============================================
+// LIVESTOCK MANAGEMENT
+// ============================================
+
+/// LivestockSpecies - represents animal species (Pig, Cattle, etc.)
+model LivestockSpecies {
+  id          String  @id @default(cuid())
+  name        String  @unique @db.VarChar(100)
+  description String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  breeds    LivestockBreed[]
+  livestock Livestock[]
+
+  @@index([name])
+}
+
+/// LivestockBreed - represents animal breeds within a species
+model LivestockBreed {
+  id          String  @id @default(cuid())
+  speciesId   String
+  name        String  @db.VarChar(100)
+  description String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  species   LivestockSpecies @relation(fields: [speciesId], references: [id], onDelete: Cascade)
+  livestock Livestock[]
+
+  @@unique([speciesId, name])
+  @@index([speciesId])
+}
+
+/// Livestock - represents individual animals
+model Livestock {
+  id        String  @id @default(cuid())
+  farmId    String
+  speciesId String
+  breedId   String?
+
+  /// Identification
+  tagNumber String        @db.VarChar(100)
+  name      String?       @db.VarChar(255)
+  sex       LivestockSex?
+
+  /// Status and acquisition
+  status            LivestockStatus  @default(ACTIVE)
+  acquisitionType   AcquisitionType? @default(BORN_ON_FARM)
+  acquisitionDate   DateTime?
+  acquisitionCost   Decimal?         @db.Decimal(12, 2)
+  acquisitionSource String?          @db.VarChar(255)
+  notes             String?          @db.Text
+
+  /// Biological information
+  dateOfBirth   DateTime?
+  motherId      String?
+  fatherId      String?
+  currentWeight Decimal?   @db.Decimal(8, 2)
+  weightUnit    WeightUnit @default(KILOGRAM)
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm               Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  species            LivestockSpecies    @relation(fields: [speciesId], references: [id], onDelete: Restrict)
+  breed              LivestockBreed?     @relation(fields: [breedId], references: [id], onDelete: SetNull)
+  mother             Livestock?          @relation("LivestockParentMother", fields: [motherId], references: [id], onDelete: SetNull)
+  father             Livestock?          @relation("LivestockParentFather", fields: [fatherId], references: [id], onDelete: SetNull)
+  events             LivestockEvent[]
+  weightRecords      LivestockWeight[]
+  healthRecords      HealthRecord[]
+  feedingRecords     FeedingRecord[]
+  vaccinationRecords VaccinationRecord[]
+  treatmentRecords   TreatmentRecord[]
+  media              LivestockMedia[]
+
+  /// Breeding - as female
+  femaleBreedingRecords BreedingRecord[] @relation("FemaleAnimal")
+  /// Breeding - as male
+  maleBreedingRecords   BreedingRecord[] @relation("MaleAnimal")
+  motherOf              Livestock[]      @relation("LivestockParentMother")
+  fatherOf              Livestock[]      @relation("LivestockParentFather")
+
+  expenses          Expense[]
+  sales             Sale[]
+  productionRecords ProductionRecord[]
+
+  @@unique([farmId, tagNumber])
+  @@index([farmId])
+  @@index([speciesId])
+  @@index([breedId])
+  @@index([status])
+  @@index([sex])
+  @@index([dateOfBirth])
+}
+
+/// LivestockEvent - historical events for individual animals
+model LivestockEvent {
+  id          String             @id @default(cuid())
+  livestockId String
+  eventType   LivestockEventType
+
+  /// Event details
+  eventDate   DateTime
+  description String?  @db.Text
+  details     String?  @db.Text /// JSON or structured data
+
+  /// Timestamps
+  recordedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  /// Relations
+  livestock Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@index([eventType])
+  @@index([eventDate])
+}
+
+/// BreedingRecord - mating and breeding information
+model BreedingRecord {
+  id       String  @id @default(cuid())
+  femaleId String
+  maleId   String? /// Optional if male identity unknown
+
+  /// Status
+  status BreedingStatus @default(PLANNED)
+
+  /// Dates
+  matingDate            DateTime
+  expectedFarrowingDate DateTime?
+  actualFarrowingDate   DateTime?
+
+  /// Outcome
+  numberOfPiglets Int?
+  maleCount       Int?
+  femaleCount     Int?
+  stillbornCount  Int?
+
+  /// Notes
+  notes String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  female Livestock  @relation("FemaleAnimal", fields: [femaleId], references: [id], onDelete: Cascade)
+  male   Livestock? @relation("MaleAnimal", fields: [maleId], references: [id], onDelete: SetNull)
+
+  @@index([femaleId])
+  @@index([maleId])
+  @@index([status])
+  @@index([matingDate])
+}
+
+/// HealthRecord - vaccinations, treatments, medical observations
+model HealthRecord {
+  id          String           @id @default(cuid())
+  livestockId String
+  recordType  HealthRecordType
+
+  /// Health details
+  title       String  @db.VarChar(255)
+  description String? @db.Text
+
+  /// Medical information
+  veterinarian String?   @db.VarChar(255)
+  medication   String?   @db.VarChar(255)
+  dosage       String?   @db.VarChar(100)
+  followUpDate DateTime?
+
+  /// Date of event (distinct from record creation)
+  eventDate DateTime
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  livestock Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@index([recordType])
+  @@index([eventDate])
+}
+
+/// FeedingRecord - livestock feeding history
+model FeedingRecord {
+  id           String       @id @default(cuid())
+  livestockId  String
+  feedType     String       @db.VarChar(255)
+  quantity     Decimal      @db.Decimal(10, 2)
+  quantityUnit QuantityUnit
+
+  /// Feeding details
+  feedingDate DateTime
+  feedingTime DateTime?
+  cost        Decimal?  @db.Decimal(12, 2)
+  currency    Currency  @default(GHS)
+
+  /// Responsible person and notes
+  recordedBy String? @db.VarChar(255)
+  notes      String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  livestock Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@index([feedingDate])
+}
+
+/// LivestockWeight - measurements for animal weight over time
+model LivestockWeight {
+  id              String     @id @default(cuid())
+  livestockId     String
+  weight          Decimal    @db.Decimal(10, 2)
+  unit            WeightUnit @default(KILOGRAM)
+  measurementDate DateTime
+  measurementTime DateTime?
+  recordedBy      String?    @db.VarChar(255)
+  notes           String?    @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  livestock Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@index([measurementDate])
+}
+
+/// VaccinationRecord - scheduled and recorded vaccinations
+model VaccinationRecord {
+  id               String    @id @default(cuid())
+  livestockId      String
+  vaccineName      String    @db.VarChar(255)
+  dateAdministered DateTime
+  dose             String?   @db.VarChar(100)
+  route            String?   @db.VarChar(100)
+  nextDueDate      DateTime?
+  administeredBy   String?   @db.VarChar(255)
+  notes            String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  livestock Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@index([dateAdministered])
+}
+
+/// TreatmentRecord - medication and treatment observations
+model TreatmentRecord {
+  id             String    @id @default(cuid())
+  livestockId    String
+  treatmentName  String    @db.VarChar(255)
+  reason         String?   @db.Text
+  startDate      DateTime?
+  endDate        DateTime?
+  dosage         String?   @db.VarChar(100)
+  unit           String?   @db.VarChar(50)
+  administeredBy String?   @db.VarChar(255)
+  followUpDate   DateTime?
+  notes          String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  livestock Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@index([startDate])
+}
+
+/// LivestockMedia - foundation for animal profile and health photos
+model LivestockMedia {
+  id          String   @id @default(cuid())
+  livestockId String
+  kind        String   @db.VarChar(50)
+  url         String   @db.VarChar(500)
+  caption     String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  livestock Livestock @relation(fields: [livestockId], references: [id], onDelete: Cascade)
+
+  @@index([livestockId])
+  @@index([kind])
+}
+
+// ============================================
+// FARM OPERATIONS & ACTIVITIES
+// ============================================
+
+/// FarmActivity - general farm activities and operations
+model FarmActivity {
+  id             String  @id @default(cuid())
+  farmId         String
+  userId         String
+  activityTypeId String?
+  assigneeId     String?
+  title          String  @db.VarChar(255)
+
+  status   ActivityStatus   @default(PLANNED)
+  priority ActivityPriority @default(NORMAL)
+
+  /// Activity details
+  category    ActivityCategory
+  description String           @db.Text
+
+  /// Associations
+  fieldId     String?
+  livestockId String?
+  cropCycleId String?
+
+  /// Date and time
+  activityDate  DateTime
+  activityTime  DateTime?
+  scheduledDate DateTime?
+  scheduledTime DateTime?
+
+  /// Quantity and costs
+  quantity     Decimal?      @db.Decimal(10, 2)
+  quantityUnit QuantityUnit?
+  cost         Decimal?      @db.Decimal(12, 2)
+  currency     Currency      @default(GHS)
+
+  /// Additional details
+  notes           String? @db.Text
+  mediaReferences String? @db.Text /// JSON array of media IDs
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm         Farm                      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user         User                      @relation("FarmActivityCreator", fields: [userId], references: [id], onDelete: Restrict)
+  assignee     User?                     @relation("FarmActivityAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  activityType FarmActivityType?         @relation(fields: [activityTypeId], references: [id], onDelete: SetNull)
+  tasks        FarmActivityTask[]
+  observations FarmActivityObservation[]
+
+  @@index([farmId])
+  @@index([userId])
+  @@index([activityTypeId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([activityDate])
+}
+
+model FarmActivityTask {
+  id          String       @id @default(cuid())
+  activityId  String
+  title       String       @db.VarChar(255)
+  description String?      @db.Text
+  assigneeId  String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(NORMAL)
+  dueDate     DateTime?
+  completedAt DateTime?
+  notes       String?      @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activity FarmActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  assignee User?        @relation("FarmActivityTaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([activityId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([dueDate])
+}
+
+model FarmActivityObservation {
+  id          String              @id @default(cuid())
+  activityId  String
+  observedBy  String?
+  category    ObservationCategory
+  severity    ObservationSeverity @default(MODERATE)
+  description String              @db.Text
+  observedAt  DateTime            @default(now())
+  notes       String?             @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  activity       FarmActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  observedByUser User?        @relation("FarmActivityObservationAuthor", fields: [observedBy], references: [id], onDelete: SetNull)
+
+  @@index([activityId])
+  @@index([category])
+  @@index([severity])
+  @@index([observedAt])
+}
+
+/// Input - agricultural input definitions and inventory
+model Input {
+  id       String        @id @default(cuid())
+  farmId   String
+  name     String        @db.VarChar(255)
+  category InputCategory
+
+  /// Input specifications
+  description   String?      @db.Text
+  supplier      String?      @db.VarChar(255)
+  unitOfMeasure QuantityUnit
+
+  /// Cost information
+  unitCost Decimal? @db.Decimal(12, 2)
+  currency Currency @default(GHS)
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([category])
+}
+
+/// Supplier - reusable supplier/contact information for inventory purchases and stock validation.
+model Supplier {
+  id           String   @id @default(cuid())
+  farmId       String
+  name         String   @db.VarChar(255)
+  phone        String?  @db.VarChar(50)
+  email        String?  @db.VarChar(255)
+  businessName String?  @db.VarChar(255)
+  address      String?  @db.Text
+  notes        String?  @db.Text
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([name])
+}
+
+/// StorageLocation - where inventory is stored within a farm.
+model StorageLocation {
+  id           String   @id @default(cuid())
+  farmId       String
+  name         String   @db.VarChar(255)
+  locationType String?  @db.VarChar(80)
+  description  String?  @db.Text
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, name])
+  @@index([farmId])
+  @@index([locationType])
+}
+
+/// InventoryItem - reusable normalized inventory item catalog for all farm inputs.
+model InventoryItem {
+  id                String            @id @default(cuid())
+  farmId            String
+  category          InventoryCategory
+  name              String            @db.VarChar(255)
+  description       String?           @db.Text
+  code              String?           @db.VarChar(80)
+  unitOfMeasure     InventoryUnit
+  minimumStockLevel Decimal?          @db.Decimal(10, 2)
+  maximumStockLevel Decimal?          @db.Decimal(10, 2)
+  reorderLevel      Decimal?          @db.Decimal(10, 2)
+  defaultLocationId String?
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, code])
+  @@index([farmId])
+  @@index([category])
+  @@index([code])
+  @@index([isActive])
+}
+
+/// InventoryBatch - batch/lot tracking for medicines, feed, seed, and fertilizer.
+model InventoryBatch {
+  id                String    @id @default(cuid())
+  farmId            String
+  itemId            String
+  batchNumber       String?   @db.VarChar(120)
+  manufacturingDate DateTime?
+  expiryDate        DateTime?
+  quantity          Decimal   @db.Decimal(10, 2)
+  unitCost          Decimal?  @db.Decimal(12, 2)
+  totalCost         Decimal?  @db.Decimal(12, 2)
+  supplierId        String?
+  locationId        String?
+  receivedAt        DateTime  @default(now())
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([batchNumber])
+  @@index([expiryDate])
+}
+
+/// InventoryReceipt - stock receiving record with supplier and cost metadata.
+model InventoryReceipt {
+  id           String        @id @default(cuid())
+  farmId       String
+  itemId       String
+  batchId      String?
+  locationId   String?
+  supplierId   String?
+  receivedBy   String
+  receivedDate DateTime
+  quantity     Decimal       @db.Decimal(10, 2)
+  unit         InventoryUnit
+  unitCost     Decimal?      @db.Decimal(12, 2)
+  totalCost    Decimal?      @db.Decimal(12, 2)
+  batchNumber  String?       @db.VarChar(120)
+  expiryDate   DateTime?
+  reference    String?       @db.VarChar(255)
+  notes        String?       @db.Text
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([receivedDate])
+}
+
+/// InventoryIssue - stock issues to farm activities, crop cycles, livestock, or batches.
+model InventoryIssue {
+  id                String        @id @default(cuid())
+  farmId            String
+  itemId            String
+  batchId           String?
+  locationId        String?
+  quantity          Decimal       @db.Decimal(10, 2)
+  unit              InventoryUnit
+  issueDate         DateTime
+  reason            String?       @db.VarChar(255)
+  createdBy         String
+  relatedEntityType String?       @db.VarChar(100)
+  relatedEntityId   String?       @db.VarChar(255)
+  cropCycleId       String?
+  livestockId       String?
+  livestockBatchId  String?
+  fieldId           String?
+  farmActivityId    String?
+  notes             String?       @db.Text
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([issueDate])
+  @@index([relatedEntityType])
+  @@index([relatedEntityId])
+}
+
+/// InventoryTransfer - controlled transfer between storage locations.
+model InventoryTransfer {
+  id                    String                  @id @default(cuid())
+  farmId                String
+  itemId                String
+  batchId               String?
+  sourceLocationId      String
+  destinationLocationId String
+  quantity              Decimal                 @db.Decimal(10, 2)
+  unit                  InventoryUnit
+  transferDate          DateTime
+  transferredBy         String
+  status                InventoryTransferStatus @default(PENDING)
+  notes                 String?                 @db.Text
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([transferDate])
+  @@index([status])
+}
+
+/// InventoryAdjustment - authorized stock corrections and count variances.
+model InventoryAdjustment {
+  id             String        @id @default(cuid())
+  farmId         String
+  itemId         String
+  batchId        String?
+  locationId     String?
+  quantity       Decimal       @db.Decimal(10, 2)
+  unit           InventoryUnit
+  reason         String        @db.VarChar(255)
+  adjustmentDate DateTime
+  adjustedBy     String
+  notes          String?       @db.Text
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([adjustmentDate])
+}
+
+/// InventoryWaste - tracked waste from damaged or expired inventory.
+model InventoryWaste {
+  id             String              @id @default(cuid())
+  farmId         String
+  itemId         String
+  batchId        String?
+  locationId     String?
+  quantity       Decimal             @db.Decimal(10, 2)
+  unit           InventoryUnit
+  wasteDate      DateTime
+  reason         InventoryLossReason @default(WASTE)
+  estimatedValue Decimal?            @db.Decimal(12, 2)
+  createdBy      String
+  notes          String?             @db.Text
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([wasteDate])
+}
+
+/// InventoryLoss - tracked losses such as theft, damage, or expiry.
+model InventoryLoss {
+  id             String              @id @default(cuid())
+  farmId         String
+  itemId         String
+  batchId        String?
+  locationId     String?
+  quantity       Decimal             @db.Decimal(10, 2)
+  unit           InventoryUnit
+  lossDate       DateTime
+  reason         InventoryLossReason @default(LOSS)
+  estimatedValue Decimal?            @db.Decimal(12, 2)
+  createdBy      String
+  notes          String?             @db.Text
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([lossDate])
+}
+
+/// InventoryMovement - complete stock ledger for every quantity change.
+model InventoryMovement {
+  id              String                @id @default(cuid())
+  farmId          String
+  itemId          String
+  batchId         String?
+  locationId      String?
+  transactionType InventoryMovementType
+  quantity        Decimal               @db.Decimal(10, 2)
+  unit            InventoryUnit
+  runningBalance  Decimal?              @db.Decimal(10, 2)
+  referenceType   String?               @db.VarChar(100)
+  referenceId     String?               @db.VarChar(255)
+  createdBy       String
+  occurredAt      DateTime              @default(now())
+  notes           String?               @db.Text
+  createdAt       DateTime              @default(now())
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([itemId])
+  @@index([locationId])
+  @@index([transactionType])
+  @@index([occurredAt])
+}
+
+/// InventoryStockBalance - current stock snapshot per item and location.
+model InventoryStockBalance {
+  id                String               @id @default(cuid())
+  farmId            String
+  itemId            String
+  locationId        String
+  currentQuantity   Decimal              @db.Decimal(10, 2)
+  availableQuantity Decimal              @db.Decimal(10, 2)
+  stockStatus       InventoryStockStatus @default(NORMAL)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+
+  @@unique([farmId, itemId, locationId])
+  @@index([farmId])
+  @@index([itemId])
+  @@index([stockStatus])
+}
+
+// ============================================
+// FINANCIAL TRACKING
+// ============================================
+
+/// Expense - reusable farm expense transaction for all operations.
+model Expense {
+  id         String @id @default(cuid())
+  farmId     String
+  recordedBy String
+
+  /// Expense details
+  category      ExpenseCategory
+  description   String            @db.Text
+  amount        Decimal           @db.Decimal(12, 2)
+  currency      Currency          @default(GHS)
+  costType      CostType          @default(DIRECT_COST)
+  paymentMethod PaymentMethod?    @default(CASH)
+  status        TransactionStatus @default(CONFIRMED)
+
+  /// Associations and allocation
+  cropCycleId      String?
+  fieldId          String?
+  livestockId      String?
+  farmActivityId   String?
+  inputId          String?
+  supplier         String?   @db.VarChar(255)
+  reference        String?   @db.VarChar(255)
+  expenseTime      DateTime?
+  expenseDate      DateTime
+  receiptReference String?   @db.VarChar(255)
+  quantity         Decimal?  @db.Decimal(10, 2)
+  unit             String?   @db.VarChar(50)
+  notes            String?   @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm           Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  recordedByUser User       @relation(fields: [recordedBy], references: [id], onDelete: Restrict)
+  cropCycle      CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+  livestock      Livestock? @relation(fields: [livestockId], references: [id], onDelete: SetNull)
+
+  @@index([farmId])
+  @@index([expenseDate])
+  @@index([category])
+  @@index([status])
+  @@index([costType])
+  @@index([currency])
+}
+
+/// Sale - reusable sales/revenue transaction.
+model Sale {
+  id         String @id @default(cuid())
+  farmId     String
+  recordedBy String
+
+  /// Summary fields
+  saleNumber    String            @db.VarChar(80)
+  totalAmount   Decimal           @db.Decimal(12, 2)
+  currency      Currency          @default(GHS)
+  paymentMethod PaymentMethod     @default(CASH)
+  status        TransactionStatus @default(DRAFT)
+
+  /// Buyer and dates
+  buyer     String?   @db.VarChar(255)
+  saleDate  DateTime
+  saleTime  DateTime?
+  reference String?   @db.VarChar(255)
+  notes     String?   @db.Text
+
+  /// Associations
+  cropCycleId String?
+  fieldId     String?
+  livestockId String?
+  produceId   String?
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm           Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  recordedByUser User       @relation(fields: [recordedBy], references: [id], onDelete: Restrict)
+  cropCycle      CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+  livestock      Livestock? @relation(fields: [livestockId], references: [id], onDelete: SetNull)
+  saleItems      SaleItem[]
+
+  @@unique([farmId, saleNumber])
+  @@index([farmId])
+  @@index([saleDate])
+  @@index([cropCycleId])
+  @@index([livestockId])
+  @@index([status])
+  @@index([currency])
+}
+
+/// SaleItem - supports multi-item sales across crops, livestock, and other products.
+model SaleItem {
+  id        String       @id @default(cuid())
+  farmId    String
+  saleId    String
+  itemType  SaleItemType @default(PRODUCE)
+  itemName  String       @db.VarChar(255)
+  itemRefId String?      @db.VarChar(255)
+  quantity  Decimal      @db.Decimal(10, 2)
+  unit      String       @db.VarChar(50)
+  unitPrice Decimal      @db.Decimal(12, 2)
+  subtotal  Decimal      @db.Decimal(12, 2)
+  currency  Currency     @default(GHS)
+  notes     String?      @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([farmId])
+  @@index([saleId])
+  @@index([itemType])
+}
+
+/// FinancialLoss - production and financial loss tracking for farm operations.
+model FinancialLoss {
+  id         String @id @default(cuid())
+  farmId     String
+  recordedBy String
+
+  category       LossCategory
+  description    String            @db.Text
+  quantity       Decimal?          @db.Decimal(10, 2)
+  unit           String?           @db.VarChar(50)
+  estimatedValue Decimal?          @db.Decimal(12, 2)
+  currency       Currency          @default(GHS)
+  lossDate       DateTime
+  status         TransactionStatus @default(CONFIRMED)
+
+  relatedEntityType String? @db.VarChar(100)
+  relatedEntityId   String? @db.VarChar(255)
+  notes             String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farm           Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  recordedByUser User @relation(fields: [recordedBy], references: [id], onDelete: Restrict)
+
+  @@index([farmId])
+  @@index([lossDate])
+  @@index([category])
+  @@index([status])
+}
+
+/// Budget - planned spending by farm and period.
+model Budget {
+  id        String @id @default(cuid())
+  farmId    String
+  createdBy String
+
+  name        String            @db.VarChar(255)
+  period      BudgetPeriod      @default(MONTHLY)
+  startDate   DateTime
+  endDate     DateTime
+  currency    Currency          @default(GHS)
+  totalBudget Decimal           @db.Decimal(12, 2)
+  status      TransactionStatus @default(DRAFT)
+  notes       String?           @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farm          Farm         @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdByUser User         @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  items         BudgetItem[]
+
+  @@index([farmId])
+  @@index([period])
+  @@index([status])
+}
+
+/// BudgetItem - category-level planned spend within a budget.
+model BudgetItem {
+  id        String @id @default(cuid())
+  budgetId  String
+  farmId    String
+  createdBy String
+
+  category      String   @db.VarChar(120)
+  plannedAmount Decimal  @db.Decimal(12, 2)
+  currency      Currency @default(GHS)
+  notes         String?  @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  budget        Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  farm          Farm   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdByUser User   @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([budgetId])
+  @@index([farmId])
+  @@index([category])
+}
+
+// ============================================
+// PRODUCTION & HARVEST
+// ============================================
+
+/// ProductionRecord - production/yield tracking
+model ProductionRecord {
+  id         String @id @default(cuid())
+  farmId     String
+  recordedBy String
+
+  /// Production details
+  product      String       @db.VarChar(255)
+  quantity     Decimal      @db.Decimal(10, 2)
+  quantityUnit QuantityUnit
+
+  /// Quality information
+  grade   String? @db.VarChar(50)
+  quality String? @db.VarChar(100)
+
+  /// Associations
+  cropCycleId String?
+  livestockId String?
+
+  /// Date
+  productionDate DateTime
+
+  /// Notes
+  notes String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm           Farm       @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  recordedByUser User       @relation(fields: [recordedBy], references: [id], onDelete: Restrict)
+  cropCycle      CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
+  livestock      Livestock? @relation(fields: [livestockId], references: [id], onDelete: SetNull)
+
+  @@index([farmId])
+  @@index([productionDate])
+}
+
+/// Harvest - specific harvest records for crops
+model Harvest {
+  id          String @id @default(cuid())
+  farmId      String
+  cropCycleId String
+  recordedBy  String
+
+  /// Harvest details
+  quantity     Decimal      @db.Decimal(10, 2)
+  quantityUnit QuantityUnit
+
+  /// Quality assessment
+  grade            String?  @db.VarChar(50)
+  damagePercentage Decimal? @db.Decimal(5, 2)
+
+  /// Dates
+  harvestDate DateTime
+
+  /// Notes
+  notes String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Relations
+  farm           Farm      @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  cropCycle      CropCycle @relation(fields: [cropCycleId], references: [id], onDelete: Cascade)
+  recordedByUser User      @relation(fields: [recordedBy], references: [id], onDelete: Restrict)
+  produce        Produce[]
+
+  @@index([farmId])
+  @@index([cropCycleId])
+  @@index([recordedBy])
+  @@index([harvestDate])
+}
+
+// ============================================
+// AUDIT & COMPLIANCE
+// ============================================
+
+/// AuditLog - audit trail for important operations
+model AuditLog {
+  id     String @id @default(cuid())
+  farmId String
+  userId String
+
+  /// Audit details
+  action     String @db.VarChar(100)
+  entityType String @db.VarChar(100)
+  entityId   String @db.VarChar(255)
+
+  /// Changes
+  oldValues String? @db.Text /// JSON serialized
+  newValues String? @db.Text /// JSON serialized
+
+  /// Request context
+  correlationId String? @db.VarChar(255)
+  ipAddress     String? @db.VarChar(45)
+  userAgent     String? @db.Text
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+
+  /// Relations
+  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([farmId])
+  @@index([userId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+// ============================================
+// NOTIFICATIONS, ALERTS & DOMAIN EVENTS
+// ============================================
+
+/// Notification - user-facing notification generated from an alert or event.
+model Notification {
+  id      String  @id @default(cuid())
+  userId  String
+  farmId  String
+  alertId String?
+  eventId String?
+
+  type     String               @db.VarChar(100)
+  title    String               @db.VarChar(255)
+  message  String               @db.Text
+  severity NotificationSeverity @default(INFO)
+  status   NotificationStatus   @default(UNREAD)
+  channel  NotificationChannel  @default(IN_APP)
+
+  /// Safe generic deep-link references. Entity ownership is validated before creation.
+  relatedEntityType String? @db.VarChar(100)
+  relatedEntityId   String? @db.VarChar(255)
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  readAt         DateTime?
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  dismissedAt    DateTime?
+  expiresAt      DateTime?
+
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm       Farm                   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  alert      FarmAlert?             @relation(fields: [alertId], references: [id], onDelete: SetNull)
+  event      DomainEvent?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  deliveries NotificationDelivery[]
+
+  @@unique([userId, eventId, channel])
+  @@index([userId, status])
+  @@index([farmId, status])
+  @@index([farmId, createdAt])
+  @@index([severity])
+  @@index([type])
+  @@index([relatedEntityType, relatedEntityId])
+  @@index([alertId])
+}
+
+/// FarmAlert - persistent farm condition that can notify many authorized users.
+model FarmAlert {
+  id               String               @id @default(cuid())
+  farmId           String
+  type             String               @db.VarChar(100)
+  title            String               @db.VarChar(255)
+  message          String               @db.Text
+  severity         NotificationSeverity @default(MEDIUM)
+  status           AlertStatus          @default(DETECTED)
+  entityType       String?              @db.VarChar(100)
+  entityId         String?              @db.VarChar(255)
+  fingerprint      String               @unique @db.VarChar(255)
+  detectedAt       DateTime             @default(now())
+  acknowledgedAt   DateTime?
+  resolvedAt       DateTime?
+  dismissedAt      DateTime?
+  acknowledgedById String?
+  resolvedById     String?
+
+  farm           Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  acknowledgedBy User?          @relation("AlertAcknowledger", fields: [acknowledgedById], references: [id], onDelete: SetNull)
+  resolvedBy     User?          @relation("AlertResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  notifications  Notification[]
+
+  @@index([farmId, status])
+  @@index([farmId, detectedAt])
+  @@index([type])
+  @@index([entityType, entityId])
+}
+
+/// NotificationPreference - per-user category/channel controls.
+model NotificationPreference {
+  id        String              @id @default(cuid())
+  userId    String
+  type      String              @db.VarChar(100)
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, channel])
+  @@index([userId, enabled])
+}
+
+/// NotificationDevice - push token registration, kept separate from OTP devices.
+model NotificationDevice {
+  id         String         @id @default(cuid())
+  userId     String
+  deviceId   String         @db.VarChar(255)
+  platform   DevicePlatform
+  pushToken  String         @db.VarChar(2048)
+  isActive   Boolean        @default(true)
+  lastSeenAt DateTime       @default(now())
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, deviceId])
+  @@index([userId, isActive])
+  @@index([platform])
+}
+
+/// NotificationDelivery - channel delivery state; in-app is recorded immediately.
+model NotificationDelivery {
+  id             String              @id @default(cuid())
+  notificationId String
+  userId         String
+  channel        NotificationChannel
+  status         DeliveryStatus      @default(PENDING)
+  attempts       Int                 @default(0)
+  lastAttemptAt  DateTime?
+  deliveredAt    DateTime?
+  failureReason  String?             @db.Text
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, channel])
+  @@index([userId, status])
+  @@index([status, lastAttemptAt])
+}
+
+/// DomainEvent - durable, idempotent input to the centralized notification engine.
+model DomainEvent {
+  id          String            @id
+  farmId      String
+  eventType   String            @db.VarChar(100)
+  entityType  String?           @db.VarChar(100)
+  entityId    String?           @db.VarChar(255)
+  occurredAt  DateTime
+  metadata    String?           @db.Text
+  status      DomainEventStatus @default(RECEIVED)
+  attempts    Int               @default(0)
+  lastError   String?           @db.Text
+  processedAt DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  farm          Farm           @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  notifications Notification[]
+
+  @@index([farmId, eventType])
+  @@index([farmId, occurredAt])
+  @@index([status, createdAt])
+}
+
+// ============================================
+// MEDIA & ATTACHMENTS (Foundation)
+// ============================================
+
+/// MediaFile - references to images and media files
+model MediaFile {
+  id String @id @default(cuid())
+
+  /// Media details
+  fileName String @db.VarChar(500)
+  mimeType String @db.VarChar(100)
+  size     Int /// Size in bytes
+
+  /// Storage reference
+  storagePath String @db.VarChar(1000)
+  storageType String @db.VarChar(50)
+
+  /// Associated entity
+  relatedEntityType String? @db.VarChar(100)
+  relatedEntityId   String? @db.VarChar(255)
+
+  /// Metadata
+  description String? @db.Text
+  tags        String? @db.Text /// JSON array
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([relatedEntityType])
+  @@index([relatedEntityId])
+  @@index([createdAt])
+}
+
+// ============================================
+// AUTHENTICATION & SECURITY
+// ============================================
+
+/// OTP Verification - manages one-time passwords for various purposes
+model OtpVerification {
+  id      String     @id @default(cuid())
+  userId  String
+  purpose OtpPurpose
+  channel OtpChannel
+
+  /// OTP code hash (never store plain OTP)
+  codeHash String @db.VarChar(255)
+
+  /// Attempt tracking and status
+  attempts    Int     @default(0)
+  maxAttempts Int     @default(5)
+  isUsed      Boolean @default(false)
+
+  /// Expiration
+  expiresAt DateTime
+
+  /// Verification tracking
+  verifiedAt DateTime?
+
+  /// Timestamps
+  createdAt DateTime @default(now())
+
+  /// Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([purpose])
+  @@index([channel])
+  @@index([expiresAt])
+  @@index([isUsed])
+}
+
+/// Authentication Session - tracks user sessions and refresh tokens
+model AuthSession {
+  id     String @id @default(cuid())
+  userId String
+
+  /// Session identification
+  refreshTokenHash String @db.VarChar(255) // Hash of refresh token, never store plaintext
+
+  /// Session metadata
+  ipAddress        String? @db.VarChar(50)
+  userAgent        String? @db.VarChar(500)
+  deviceIdentifier String? @db.VarChar(255) // Device/browser fingerprint
+
+  /// Session status
+  isRevoked     Boolean   @default(false)
+  revokedAt     DateTime?
+  revokedReason String?   @db.VarChar(100)
+
+  /// Timestamps and expiration
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  expiresAt  DateTime
+
+  /// Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRevoked])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+// ============================================
+// MEDIA & ATTACHMENTS (Foundation)

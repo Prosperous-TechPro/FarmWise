@@ -1,0 +1,20 @@
+{
+  "name": "farmwise-database",
+  "version": "0.0.1",
+  "description": "FarmWise - Database Configuration with Prisma ORM",
+  "private": true,
+  "scripts": {
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:reset": "prisma migrate reset",
+    "generate": "prisma generate",
+    "seed": "node seed.js",
+    "studio": "prisma studio"
+  },
+  "devDependencies": {
+    "prisma": "^5.0.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.0.0"
+  }
+}

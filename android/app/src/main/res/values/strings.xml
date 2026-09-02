@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">FarmWise</string>
+    <string name="api_base_url">http://10.0.2.2:3000/api/v1/</string>
+    <string name="login">Log in</string>
+    <string name="register">Create account</string>
+    <string name="email_or_phone">Email or phone</string>
+    <string name="password">Password</string>
+    <string name="dashboard">Dashboard</string>
+    <string name="dashboard_error">Unable to load the dashboard. Check your connection and retry.</string>
+    <string name="dashboard_empty">No dashboard data is available yet.</string>
+    <string name="module_ready">This module is ready for API integration.</string>
+</resources>

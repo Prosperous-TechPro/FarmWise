@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="@dimen/page_padding">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Your farms" android:textColor="@color/black" android:textSize="28sp" android:textStyle="bold" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/add_farm_button" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Add farm" />
+    </LinearLayout>
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout android:id="@+id/refresh_farms" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="16dp" android:layout_weight="1">
+        <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
+            <androidx.recyclerview.widget.RecyclerView android:id="@+id/farm_list" android:layout_width="match_parent" android:layout_height="match_parent" />
+            <LinearLayout android:id="@+id/empty_farm_state" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:orientation="vertical" android:visibility="gone">
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="No farms yet" android:textColor="@color/black" android:textSize="20sp" android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="Create your first farm to start managing your operation." android:textAlignment="center" android:textColor="@color/text_secondary" />
+            </LinearLayout>
+            <TextView android:id="@+id/farm_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_gravity="bottom" android:padding="12dp" android:textColor="@color/text_secondary" />
+        </FrameLayout>
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+</LinearLayout>

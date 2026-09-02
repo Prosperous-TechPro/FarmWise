@@ -1,0 +1,5 @@
+package com.farmwise.app.data.models
+
+data class ActivityTypeDto(val id: String, val name: String, val category: String, val description: String? = null)
+data class FarmActivityDto(val id: String, val farmId: String, val activityTypeId: String? = null, val assigneeId: String? = null, val title: String, val status: String, val priority: String, val category: String, val description: String, val fieldId: String? = null, val livestockId: String? = null, val cropCycleId: String? = null, val activityDate: String, val activityTime: String? = null, val quantity: Double? = null, val quantityUnit: String? = null, val cost: Double? = null, val notes: String? = null)
+data class CreateActivityRequest(val title: String, val description: String, val category: String, val status: String = "COMPLETED", val priority: String = "NORMAL", val activityDate: String, val activityTypeId: String? = null, val fieldId: String? = null, val livestockId: String? = null, val cropCycleId: String? = null, val quantity: Double? = null, val quantityUnit: String? = null, val cost: Double? = null, val notes: String? = null)

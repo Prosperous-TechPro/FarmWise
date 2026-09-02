@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="@dimen/page_padding">
+        <TextView android:id="@+id/details_farm_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/black" android:textSize="28sp" android:textStyle="bold" />
+        <TextView android:id="@+id/details_farm_location" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/text_secondary" />
+        <TextView android:id="@+id/details_farm_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/primary_green" />
+        <TextView android:id="@+id/details_farm_counts" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:textColor="@color/black" android:textSize="16sp" />
+        <TextView android:id="@+id/details_farm_description" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:textColor="@color/text_secondary" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/view_fields_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="View fields" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/view_crop_cycles_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="View crop cycles" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/view_livestock_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="View livestock" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/view_operations_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Daily operations" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/view_production_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Production and harvests" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/view_sales_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="View sales" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/view_financial_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Financial performance" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/edit_farm_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="Edit farm" />
+        <TextView android:id="@+id/details_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:textColor="@color/text_secondary" />
+    </LinearLayout>
+</ScrollView>

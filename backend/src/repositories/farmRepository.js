@@ -1,0 +1,211 @@
+/**
+ * Farm repository
+ * Database access layer for farm and field operations.
+ */
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+export async function getFarmById(farmId) {
+  return prisma.farm.findUnique({
+    where: { id: farmId },
+    include: {
+      owner: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      farmMembers: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
+      fields: true,
+      _count: {
+        select: {
+          farmMembers: true,
+          fields: true,
+        },
+      },
+    },
+  });
+}
+
+export async function listUserFarms(userId) {
+  return prisma.farm.findMany({
+    where: {
+      OR: [{ ownerId: userId }, { farmMembers: { some: { userId, status: 'ACTIVE' } } }],
+    },
+    include: {
+      owner: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      _count: {
+        select: {
+          farmMembers: true,
+          fields: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function createFarm(data) {
+  return prisma.farm.create({
+    data: {
+      ownerId: data.ownerId,
+      name: data.name,
+      description: data.description,
+      region: data.region,
+      district: data.district,
+      country: data.country,
+      status: data.status || 'ACTIVE',
+      farmMembers: {
+        create: {
+          userId: data.ownerId,
+          role: 'OWNER',
+          status: 'ACTIVE',
+        },
+      },
+    },
+    include: {
+      owner: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      farmMembers: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function updateFarm(farmId, data) {
+  return prisma.farm.update({
+    where: { id: farmId },
+    data,
+    include: {
+      owner: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      farmMembers: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+export async function getFarmAccess(farmId, userId) {
+  return prisma.farmMember.findFirst({
+    where: {
+      farmId,
+      userId,
+      status: 'ACTIVE',
+    },
+    include: {
+      farm: true,
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+    },
+  });
+}
+
+export async function findFieldById(fieldId) {
+  return prisma.field.findUnique({
+    where: { id: fieldId },
+    include: {
+      farm: true,
+    },
+  });
+}
+
+export async function listFarmFields(farmId) {
+  return prisma.field.findMany({
+    where: { farmId },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function createField(farmId, data) {
+  return prisma.field.create({
+    data: {
+      farmId,
+      name: data.name,
+      description: data.description,
+      area: data.area,
+      areaUnit: data.areaUnit || 'HECTARE',
+      latitude: data.latitude,
+      longitude: data.longitude,
+      status: data.status || 'ACTIVE',
+    },
+  });
+}
+
+export async function updateField(fieldId, data) {
+  return prisma.field.update({
+    where: { id: fieldId },
+    data,
+  });
+}
+
+export default {
+  getFarmById,
+  listUserFarms,
+  createFarm,
+  updateFarm,
+  getFarmAccess,
+  findFieldById,
+  listFarmFields,
+  createField,
+  updateField,
+};

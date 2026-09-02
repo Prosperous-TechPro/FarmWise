@@ -1,0 +1,9 @@
+/**
+ * Backend Modules
+ * 
+ * Modules group related functionality by domain
+ * Examples: auth, users, farms, livestock, crops, etc.
+ * Each module contains its own routes, controllers, services, validators
+ */
+
+// Placeholder for modules directory

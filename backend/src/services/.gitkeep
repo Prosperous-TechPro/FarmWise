@@ -1,0 +1,9 @@
+/**
+ * Backend Services
+ * 
+ * Services contain business logic
+ * They are used by controllers and other services
+ * They should be independent of HTTP concerns
+ */
+
+// Placeholder for services directory

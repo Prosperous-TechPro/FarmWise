@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="@dimen/page_padding">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Add farm" android:textColor="@color/black" android:textSize="28sp" android:textStyle="bold" />
+        <EditText android:id="@+id/farm_name_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:hint="Farm name" android:inputType="textCapSentences" />
+        <EditText android:id="@+id/region_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Region" />
+        <EditText android:id="@+id/district_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="District" />
+        <EditText android:id="@+id/country_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Country" />
+        <EditText android:id="@+id/farm_description_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Description" android:inputType="textCapSentences|textMultiLine" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/create_farm_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="Create farm" />
+        <TextView android:id="@+id/add_farm_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:textColor="@color/text_secondary" />
+    </LinearLayout>
+</ScrollView>

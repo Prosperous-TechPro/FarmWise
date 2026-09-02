@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="@dimen/page_padding">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Create your FarmWise account" android:textColor="@color/black" android:textSize="26sp" android:textStyle="bold" />
+        <EditText android:id="@+id/first_name_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:hint="First name" android:inputType="textPersonName" />
+        <EditText android:id="@+id/last_name_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Last name" android:inputType="textPersonName" />
+        <EditText android:id="@+id/email_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Email" android:inputType="textEmailAddress" />
+        <EditText android:id="@+id/phone_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Phone (optional)" android:inputType="phone" />
+        <EditText android:id="@+id/register_password_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Password" android:inputType="textPassword" />
+        <EditText android:id="@+id/confirm_password_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Confirm password" android:inputType="textPassword" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/register_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="@string/register" />
+        <TextView android:id="@+id/register_state" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:textColor="@color/text_secondary" />
+    </LinearLayout>
+</ScrollView>

@@ -1,0 +1,9 @@
+package com.farmwise.app.data.models
+
+data class LivestockDto(val id: String, val farmId: String, val speciesId: String, val breedId: String? = null, val tagNumber: String, val name: String? = null, val sex: String? = null, val status: String = "ACTIVE", val acquisitionType: String? = null, val acquisitionDate: String? = null, val acquisitionSource: String? = null, val dateOfBirth: String? = null, val currentWeight: Double? = null, val weightUnit: String? = null, val notes: String? = null, val species: LivestockSpeciesDto? = null, val breed: LivestockBreedDto? = null, val events: List<LivestockEventDto> = emptyList())
+data class LivestockSpeciesDto(val id: String, val name: String, val description: String? = null)
+data class LivestockBreedDto(val id: String, val speciesId: String, val name: String)
+data class LivestockEventDto(val id: String, val eventType: String, val eventDate: String, val description: String? = null)
+data class BreedingDto(val id: String, val femaleId: String, val maleId: String? = null, val status: String = "PLANNED", val matingDate: String, val expectedFarrowingDate: String? = null, val actualFarrowingDate: String? = null, val numberOfPiglets: Int? = null, val maleCount: Int? = null, val femaleCount: Int? = null, val stillbornCount: Int? = null, val notes: String? = null)
+data class CreateLivestockRequest(val speciesId: String, val breedId: String? = null, val tagNumber: String, val name: String? = null, val sex: String? = null, val acquisitionType: String? = "BORN_ON_FARM", val acquisitionDate: String? = null, val acquisitionSource: String? = null, val dateOfBirth: String? = null, val currentWeight: Double? = null, val weightUnit: String? = "KILOGRAM", val notes: String? = null)
+data class CreateBreedingRequest(val maleAnimalId: String, val maleSex: String = "MALE", val matingDate: String, val status: String? = "PLANNED", val notes: String? = null)

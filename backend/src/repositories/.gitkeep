@@ -1,0 +1,9 @@
+/**
+ * Backend Repositories
+ * 
+ * Repositories provide data access abstraction
+ * They encapsulate database queries
+ * Controllers use repositories to access data
+ */
+
+// Placeholder for repositories directory

@@ -1,0 +1,5 @@
+# FarmWise Database
+
+Prisma ORM configuration and database schema for PostgreSQL.
+
+See [../README.md](../README.md) for overview.

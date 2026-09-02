@@ -1,0 +1,8 @@
+/**
+ * Backend Validators
+ * 
+ * Validators provide input validation and sanitization
+ * They ensure data conforms to requirements before processing
+ */
+
+// Placeholder for validators directory

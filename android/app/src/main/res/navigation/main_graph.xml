@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/main_graph" app:startDestination="@id/loginFragment">
+    <fragment android:id="@+id/loginFragment" android:name="com.farmwise.app.presentation.auth.LoginFragment" android:label="Login" />
+    <fragment android:id="@+id/registerFragment" android:name="com.farmwise.app.presentation.auth.RegisterFragment" android:label="Register" />
+    <fragment android:id="@+id/otpFragment" android:name="com.farmwise.app.presentation.auth.VerificationFragment" android:label="OTP verification" />
+    <fragment android:id="@+id/twoFactorFragment" android:name="com.farmwise.app.presentation.auth.VerificationFragment" android:label="Two-factor verification"><argument android:name="twoFactor" android:defaultValue="true" app:argType="boolean" /></fragment>
+    <fragment android:id="@+id/dashboardFragment" android:name="com.farmwise.app.presentation.dashboard.DashboardFragment" android:label="Dashboard" />
+    <fragment android:id="@+id/farmsFragment" android:name="com.farmwise.app.presentation.farms.FarmListFragment" android:label="Farms" />
+    <fragment android:id="@+id/addFarmFragment" android:name="com.farmwise.app.presentation.farms.AddFarmFragment" android:label="Add farm" />
+    <fragment android:id="@+id/farmDetailsFragment" android:name="com.farmwise.app.presentation.farms.FarmDetailsFragment" android:label="Farm details"><argument android:name="farmId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/editFarmFragment" android:name="com.farmwise.app.presentation.farms.EditFarmFragment" android:label="Edit farm"><argument android:name="farmId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/fieldListFragment" android:name="com.farmwise.app.presentation.fields.FieldListFragment" android:label="Fields" />
+    <fragment android:id="@+id/addFieldFragment" android:name="com.farmwise.app.presentation.fields.AddFieldFragment" android:label="Add field" />
+    <fragment android:id="@+id/fieldDetailsFragment" android:name="com.farmwise.app.presentation.fields.FieldDetailsFragment" android:label="Field details"><argument android:name="fieldId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/editFieldFragment" android:name="com.farmwise.app.presentation.fields.EditFieldFragment" android:label="Edit field"><argument android:name="fieldId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/cropCycleListFragment" android:name="com.farmwise.app.presentation.crops.CropCycleListFragment" android:label="Crop cycles" />
+    <fragment android:id="@+id/addCropCycleFragment" android:name="com.farmwise.app.presentation.crops.AddCropCycleFragment" android:label="Add crop cycle" />
+    <fragment android:id="@+id/cropCycleDetailsFragment" android:name="com.farmwise.app.presentation.crops.CropCycleDetailsFragment" android:label="Crop cycle details"><argument android:name="cycleId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/animalListFragment" android:name="com.farmwise.app.presentation.livestock.AnimalListFragment" android:label="Livestock" />
+    <fragment android:id="@+id/addAnimalFragment" android:name="com.farmwise.app.presentation.livestock.AddAnimalFragment" android:label="Add animal" />
+    <fragment android:id="@+id/animalDetailsFragment" android:name="com.farmwise.app.presentation.livestock.AnimalDetailsFragment" android:label="Animal details"><argument android:name="animalId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/breedingListFragment" android:name="com.farmwise.app.presentation.livestock.BreedingListFragment" android:label="Breeding history"><argument android:name="animalId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/addBreedingFragment" android:name="com.farmwise.app.presentation.livestock.AddBreedingFragment" android:label="Record mating"><argument android:name="animalId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/dailyOperationsFragment" android:name="com.farmwise.app.presentation.activities.DailyOperationsFragment" android:label="Daily operations" />
+    <fragment android:id="@+id/addActivityFragment" android:name="com.farmwise.app.presentation.activities.AddActivityFragment" android:label="Record activity" />
+    <fragment android:id="@+id/activityDetailsFragment" android:name="com.farmwise.app.presentation.activities.ActivityDetailsFragment" android:label="Activity details"><argument android:name="activityId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/inventoryDashboardFragment" android:name="com.farmwise.app.presentation.inventory.InventoryDashboardFragment" android:label="Inventory" />
+    <fragment android:id="@+id/addInventoryItemFragment" android:name="com.farmwise.app.presentation.inventory.AddInventoryItemFragment" android:label="Add inventory item" />
+    <fragment android:id="@+id/receiveStockFragment" android:name="com.farmwise.app.presentation.inventory.ReceiveStockFragment" android:label="Receive stock" />
+    <fragment android:id="@+id/useStockFragment" android:name="com.farmwise.app.presentation.inventory.UseStockFragment" android:label="Use stock" />
+    <fragment android:id="@+id/productionDashboardFragment" android:name="com.farmwise.app.presentation.production.ProductionDashboardFragment" android:label="Production" />
+    <fragment android:id="@+id/addHarvestFragment" android:name="com.farmwise.app.presentation.production.AddHarvestFragment" android:label="Record harvest" />
+    <fragment android:id="@+id/addProductionFragment" android:name="com.farmwise.app.presentation.production.AddProductionFragment" android:label="Record production" />
+    <fragment android:id="@+id/harvestDetailsFragment" android:name="com.farmwise.app.presentation.production.HarvestDetailsFragment" android:label="Harvest details"><argument android:name="harvestId" app:argType="string" /></fragment>
+    <fragment android:id="@+id/salesDashboardFragment" android:name="com.farmwise.app.presentation.sales.SalesDashboardFragment" android:label="Sales" />
+    <fragment android:id="@+id/addSaleFragment" android:name="com.farmwise.app.presentation.sales.AddSaleFragment" android:label="Add sale" />
+    <fragment android:id="@+id/financialDashboardFragment" android:name="com.farmwise.app.presentation.financial.FinancialDashboardFragment" android:label="Financial performance" />
+    <fragment android:id="@+id/expenseBreakdownFragment" android:name="com.farmwise.app.presentation.financial.ExpenseBreakdownFragment" android:label="Expense breakdown" />
+    <fragment android:id="@+id/tasksFragment" android:name="com.farmwise.app.presentation.activities.TaskGapFragment" android:label="Tasks" />
+    <fragment android:id="@+id/moreFragment" android:name="com.farmwise.app.presentation.common.PlaceholderFragment" android:label="More"><argument android:name="title" android:defaultValue="More modules" app:argType="string" /></fragment>
+</navigation>

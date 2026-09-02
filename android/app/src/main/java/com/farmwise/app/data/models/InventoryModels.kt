@@ -1,0 +1,10 @@
+package com.farmwise.app.data.models
+
+data class InventoryItemDto(val id: String, val farmId: String, val category: String, val name: String, val description: String? = null, val code: String? = null, val unitOfMeasure: String, val minimumStockLevel: Double? = null, val maximumStockLevel: Double? = null, val reorderLevel: Double? = null, val isActive: Boolean = true)
+data class InventorySummaryDto(val totalItems: Int = 0, val totalStockOnHand: Double = 0.0, val stockBalanceRecords: Int = 0, val totalReceipts: Int = 0, val totalReceiptQuantity: Double = 0.0, val totalIssues: Int = 0, val totalIssueQuantity: Double = 0.0)
+data class StorageLocationDto(val id: String, val farmId: String, val name: String, val locationType: String? = null)
+data class InventoryReceiptDto(val id: String, val itemId: String, val quantity: Double, val unit: String, val receivedDate: String, val totalCost: Double? = null, val batchNumber: String? = null, val expiryDate: String? = null)
+data class InventoryIssueDto(val id: String, val itemId: String, val quantity: Double, val unit: String, val issueDate: String, val reason: String? = null)
+data class CreateInventoryItemRequest(val name: String, val category: String, val unitOfMeasure: String, val description: String? = null, val minimumStockLevel: Double? = null, val maximumStockLevel: Double? = null, val reorderLevel: Double? = null)
+data class ReceiveInventoryRequest(val itemId: String, val locationId: String, val quantity: Double, val unit: String, val receivedDate: String, val unitCost: Double? = null, val totalCost: Double? = null, val batchNumber: String? = null, val expiryDate: String? = null, val reference: String? = null, val notes: String? = null)
+data class IssueInventoryRequest(val itemId: String, val locationId: String, val quantity: Double, val unit: String, val issueDate: String, val reason: String? = null, val cropCycleId: String? = null, val livestockId: String? = null, val fieldId: String? = null, val farmActivityId: String? = null, val notes: String? = null)

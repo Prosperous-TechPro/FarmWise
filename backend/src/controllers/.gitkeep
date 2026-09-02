@@ -1,0 +1,8 @@
+/**
+ * Backend Controllers
+ * 
+ * Controllers handle HTTP request/response logic
+ * They should be thin and delegate to services for business logic
+ */
+
+// Placeholder for controllers directory

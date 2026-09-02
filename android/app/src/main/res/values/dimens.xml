@@ -1,0 +1,5 @@
+<resources>
+    <dimen name="page_padding">20dp</dimen>
+    <dimen name="section_gap">20dp</dimen>
+    <dimen name="touch_target">48dp</dimen>
+</resources>

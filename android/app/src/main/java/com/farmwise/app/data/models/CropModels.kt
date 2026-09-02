@@ -1,0 +1,15 @@
+package com.farmwise.app.data.models
+
+data class FieldDto(val id: String, val farmId: String, val name: String, val description: String? = null, val area: Double = 0.0, val areaUnit: String = "HECTARE", val status: String = "ACTIVE")
+data class CreateFieldRequest(val name: String, val description: String? = null, val area: Double, val areaUnit: String = "HECTARE", val status: String = "ACTIVE")
+data class UpdateFieldRequest(val name: String? = null, val description: String? = null, val area: Double? = null, val areaUnit: String? = null, val status: String? = null)
+data class CropDto(val id: String, val name: String, val description: String? = null, val averageGrowingDays: Int? = null)
+data class CropCycleDto(val id: String, val farmId: String, val fieldId: String, val cropId: String, val cycleName: String? = null, val season: String? = null, val status: String = "PLANNED", val plantedArea: Double? = null, val areaUnit: String? = null, val plantingDate: String? = null, val expectedHarvestDate: String? = null, val actualHarvestDate: String? = null, val expectedYield: Double? = null, val actualYield: Double? = null, val yieldUnit: String? = null, val notes: String? = null, val crop: CropDto? = null, val field: FieldDto? = null)
+data class CreateCropCycleRequest(val fieldId: String, val cropId: String, val cycleName: String? = null, val season: String? = null, val area: Double, val areaUnit: String = "HECTARE", val plantingDate: String? = null, val expectedHarvestDate: String? = null, val notes: String? = null)
+data class CropActivityDto(val id: String, val activityType: String, val description: String, val activityDate: String, val activityTime: String? = null, val quantity: Double? = null, val unit: String? = null)
+data class CreateCropActivityRequest(val activityType: String, val description: String, val activityDate: String, val activityTime: String? = null, val quantity: Double? = null, val unit: String? = null)
+data class CropInputDto(val id: String, val inputType: String, val inputName: String, val quantity: Double, val unit: String, val applicationDate: String)
+data class ProductionRecordDto(val id: String, val product: String, val quantity: Double, val quantityUnit: String, val productionDate: String)
+data class HarvestDto(val id: String, val cropCycleId: String, val quantity: Double, val quantityUnit: String, val harvestDate: String, val grade: String? = null)
+data class CreateProductionRequest(val product: String, val quantity: Double, val quantityUnit: String, val productionDate: String, val cropCycleId: String? = null, val notes: String? = null)
+data class CreateHarvestRequest(val cropCycleId: String, val quantity: Double, val quantityUnit: String, val harvestDate: String, val grade: String? = null, val damagePercentage: Double? = null, val notes: String? = null)

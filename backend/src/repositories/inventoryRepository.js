@@ -2,9 +2,7 @@
  * Generic inventory repository for stock, item catalog, and movement records.
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 export async function listInventoryItemsByFarm(farmId, filters = {}) {
   return prisma.inventoryItem.findMany({

@@ -146,6 +146,44 @@ export function validateLogin(data) {
   };
 }
 
+export function validateProfileUpdate(data = {}) {
+  const errors = {};
+  const normalizedData = {};
+
+  if (data.firstName !== undefined) {
+    if (typeof data.firstName !== 'string' || data.firstName.trim().length < 2 || data.firstName.trim().length > 50) {
+      errors.firstName = 'First name must be between 2 and 50 characters';
+    } else normalizedData.firstName = data.firstName.trim();
+  }
+
+  if (data.lastName !== undefined) {
+    if (typeof data.lastName !== 'string' || data.lastName.trim().length < 2 || data.lastName.trim().length > 50) {
+      errors.lastName = 'Last name must be between 2 and 50 characters';
+    } else normalizedData.lastName = data.lastName.trim();
+  }
+
+  if (data.phone !== undefined) {
+    if (typeof data.phone !== 'string') errors.phone = 'Phone number must be a string';
+    else {
+      const phoneResult = normalizePhoneNumber(data.phone);
+      if (!phoneResult.isValid) errors.phone = phoneResult.error;
+      else normalizedData.phone = phoneResult.normalizedNumber;
+    }
+  }
+
+  if (data.profilePictureUrl !== undefined) {
+    if (data.profilePictureUrl !== null && (typeof data.profilePictureUrl !== 'string' || !/^data:image\/(png|jpeg|jpg|webp);base64,[A-Za-z0-9+/=]+$/.test(data.profilePictureUrl) || data.profilePictureUrl.length > 5 * 1024 * 1024)) {
+      errors.profilePictureUrl = 'Profile picture must be a PNG, JPG, or WEBP image smaller than 5 MB';
+    } else normalizedData.profilePictureUrl = data.profilePictureUrl;
+  }
+
+  if (!Object.keys(normalizedData).length && !Object.keys(errors).length) {
+    errors.profile = 'At least one profile field is required';
+  }
+
+  return { isValid: !Object.keys(errors).length, errors, normalizedData };
+}
+
 /**
  * Validate OTP verification request
  * @param {Object} data - Request data

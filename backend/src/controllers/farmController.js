@@ -14,7 +14,7 @@ import {
 } from '../services/farmService.js';
 
 export async function listFarms(req, res) {
-  const farms = await listUserFarmsService(req.user.id);
+  const farms = await listUserFarmsService(req.user.id, req.user.roles);
   return res.status(200).json({
     success: true,
     data: farms,

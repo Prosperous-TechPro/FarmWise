@@ -40,7 +40,7 @@ class APIClient {
           : {}),
         ...options.headers,
       },
-      signal: AbortSignal.timeout(this.timeout),
+      signal: AbortSignal.timeout(options.timeout || this.timeout),
     };
 
     // Add body for non-GET requests

@@ -19,6 +19,7 @@ import {
   emailExists,
   phoneExists,
   assignRoleToUser,
+  ensureRole,
 } from '../repositories/userRepository.js';
 import {
   createAuthSession,
@@ -69,22 +70,13 @@ export async function registerUser(options) {
       phoneVerified: false,
     });
 
-    // Assign default role (FARM_OWNER) to new user
-    // In production, this might be configurable
-    try {
-      // Note: This assumes a FARM_OWNER role exists in the database
-      // For now, we'll just log a note that role assignment is pending
-      logger.info(`User registered successfully`, {
-        userId: user.id,
-        email: user.email,
-        verificationMethod,
-      });
-    } catch (roleError) {
-      logger.warn(`Failed to assign default role to user`, {
-        userId: user.id,
-        error: roleError.message,
-      });
-    }
+    const ownerRole = await ensureRole('FARM_OWNER', 'Farm owner access');
+    await assignRoleToUser(user.id, ownerRole.id);
+    logger.info(`User registered successfully`, {
+      userId: user.id,
+      email: user.email,
+      verificationMethod,
+    });
 
     return {
       success: true,

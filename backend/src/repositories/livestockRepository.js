@@ -2,9 +2,7 @@
  * Livestock repository layer
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 export async function listLivestockForFarm(farmId, filters = {}) {
   return prisma.livestock.findMany({

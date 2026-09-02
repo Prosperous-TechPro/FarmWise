@@ -1,9 +1,6 @@
 /** Read-only, aggregate analytics queries over authoritative domain records. */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
+import prisma from '../lib/prisma.js';
 function range(field, dateFrom, dateTo) {
   return dateFrom || dateTo ? { [field]: { ...(dateFrom ? { gte: dateFrom } : {}), ...(dateTo ? { lte: dateTo } : {}) } } : {};
 }

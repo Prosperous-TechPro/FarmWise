@@ -10,9 +10,9 @@ const config = {
   // API Configuration
   api: {
     baseURL: API_BASE_URL,
-    timeout: 30000, // 30 seconds
-    retryAttempts: 3,
-    retryDelay: 1000, // 1 second
+    timeout: 10000,
+    retryAttempts: 2,
+    retryDelay: 400,
   },
 
   // Feature flags

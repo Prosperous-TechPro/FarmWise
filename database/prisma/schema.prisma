@@ -469,6 +469,7 @@ model User {
   phone        String? @unique @db.VarChar(20)
   firstName    String  @db.VarChar(100)
   lastName     String  @db.VarChar(100)
+  profilePictureUrl String? @db.Text
   passwordHash String  @db.VarChar(255)
 
   /// Account status
@@ -510,10 +511,113 @@ model User {
   harvests                Harvest[]
   otpVerifications        OtpVerification[]
   authSessions            AuthSession[]
+  communityPosts          CommunityPost[]
+  communityComments       CommunityComment[]
+  communityLikes          CommunityLike[]
+  communityReports        CommunityReport[]
+  communityModerationActions CommunityModerationAction[]
 
   @@index([email])
   @@index([phone])
   @@index([status])
+}
+
+model CommunityPost {
+  id        String   @id @default(cuid())
+  authorId  String
+  title     String?  @db.VarChar(255)
+  body      String   @db.Text
+  category  String?  @db.VarChar(100)
+  status    String   @default("PUBLISHED") @db.VarChar(30)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author       User                       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  media        CommunityPostMedia[]
+  comments     CommunityComment[]
+  likes        CommunityLike[]
+  reports      CommunityReport[]
+  moderationActions CommunityModerationAction[]
+
+  @@index([createdAt])
+  @@index([authorId, createdAt])
+  @@index([status, createdAt])
+}
+
+model CommunityPostMedia {
+  id        String        @id @default(cuid())
+  postId    String
+  mediaType String        @db.VarChar(20)
+  dataUrl   String        @db.Text
+  createdAt DateTime      @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+}
+
+model CommunityComment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  body      String   @db.Text
+  status    String   @default("PUBLISHED") @db.VarChar(30)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+  @@index([authorId])
+}
+
+model CommunityLike {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
+model CommunityReport {
+  id          String   @id @default(cuid())
+  postId      String?
+  commentId   String?
+  reporterId  String
+  reason      String   @db.VarChar(100)
+  details     String?  @db.Text
+  status      String   @default("OPEN") @db.VarChar(30)
+  createdAt   DateTime @default(now())
+
+  post      CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter  User           @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([postId])
+  @@index([commentId])
+}
+
+model CommunityModerationAction {
+  id        String   @id @default(cuid())
+  postId    String?
+  commentId String?
+  actorId   String
+  action    String   @db.VarChar(50)
+  reason    String?  @db.Text
+  createdAt DateTime @default(now())
+
+  post    CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  actor   User           @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([postId])
+  @@index([commentId])
 }
 
 /// Role entity - represents user roles in the system

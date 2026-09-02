@@ -3,9 +3,7 @@
  * Database access layer for farm and field operations.
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 export async function getFarmById(farmId) {
   return prisma.farm.findUnique({
@@ -42,9 +40,9 @@ export async function getFarmById(farmId) {
   });
 }
 
-export async function listUserFarms(userId) {
+export async function listUserFarms(userId, includeAll = false) {
   return prisma.farm.findMany({
-    where: {
+    where: includeAll ? undefined : {
       OR: [{ ownerId: userId }, { farmMembers: { some: { userId, status: 'ACTIVE' } } }],
     },
     include: {

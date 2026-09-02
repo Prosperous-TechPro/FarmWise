@@ -22,6 +22,8 @@ import inventoryRoutes from './routes/inventoryRoutes.js';
 import activityRoutes from './routes/activityRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
+import adminDashboardRoutes from './routes/adminDashboardRoutes.js';
+import communityRoutes from './routes/communityRoutes.js';
 import { createEmailProvider } from './utils/emailProvider.js';
 import { createSmsProvider } from './utils/smsProvider.js';
 
@@ -132,6 +134,8 @@ export function createApp() {
 
   // Dashboard and analytics routes
   app.use('/api/v1', analyticsRoutes);
+  app.use('/api/v1', adminDashboardRoutes);
+  app.use('/api/v1/community', communityRoutes);
 
   // ============================================
   // ERROR HANDLING

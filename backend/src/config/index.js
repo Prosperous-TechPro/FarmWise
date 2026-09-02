@@ -27,9 +27,14 @@ const config = {
 
   // Frontend
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
-  corsOrigin: (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  corsOrigin: (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174')
     .split(',')
-    .map(url => url.trim()),
+    .map(url => url.trim())
+    .filter(Boolean)
+    .reduce((unique, url) => {
+      if (!unique.includes(url)) unique.push(url);
+      return unique;
+    }, []),
 
   // Database
   database: {

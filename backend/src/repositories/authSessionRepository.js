@@ -3,10 +3,7 @@
  * Database access layer for authentication session operations
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
+import prisma from '../lib/prisma.js';
 /**
  * Create authentication session
  * @param {Object} sessionData - Session data

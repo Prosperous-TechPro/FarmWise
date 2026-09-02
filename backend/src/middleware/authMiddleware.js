@@ -10,6 +10,10 @@ import { isSessionValid } from '../repositories/authSessionRepository.js';
 import logger from '../utils/logger.js';
 import config from '../config/index.js';
 
+function isSystemAdmin(user) {
+  return user?.roles?.some((role) => ['ADMIN', 'SUPERADMIN'].includes(role));
+}
+
 /**
  * Middleware to authenticate requests using JWT
  * Extracts user from token and attaches to req.user
@@ -124,6 +128,7 @@ export function requireRole(roles) {
     }
 
     const userRoles = req.user.roles || [];
+    if (isSystemAdmin(req.user)) return next();
     const hasRole = requiredRoles.some((role) => userRoles.includes(role));
 
     if (!hasRole) {
@@ -164,6 +169,8 @@ export function requirePermission(permissions) {
           errors: { authentication: 'You must be logged in' },
         });
       }
+
+      if (isSystemAdmin(req.user)) return next();
 
       // Get user permissions from database
       const userPermissions = await getUserPermissions(req.user.id);
@@ -207,7 +214,7 @@ export function requirePermission(permissions) {
  * Middleware to check if user is superadmin
  */
 export function requireSuperAdmin(req, res, next) {
-  return requireRole('SUPERADMIN')(req, res, next);
+  return requireRole(['ADMIN', 'SUPERADMIN'])(req, res, next);
 }
 
 /**
@@ -241,6 +248,12 @@ export async function requireFarmAccess(req, res, next) {
         message: 'Farm not found',
         errors: { farmId: 'No farm exists with this ID' },
       });
+    }
+
+    if (isSystemAdmin(req.user)) {
+      req.farm = farm;
+      req.farmAccess = { role: 'OWNER', status: 'ACTIVE' };
+      return next();
     }
 
     const access = await getFarmAccess(farmId, req.user.id);
@@ -293,11 +306,11 @@ export function requireFarmRole(roles = ['OWNER', 'MANAGER']) {
     }
 
     const userRoles = req.user.roles || [];
-    const hasSuperAdmin = userRoles.includes('SUPERADMIN');
+    const hasSystemAdmin = isSystemAdmin(req.user);
     const farmRole = req.farmAccess?.role || 'WORKER';
     const allowedRoles = Array.isArray(roles) ? roles : [roles];
 
-    if (hasSuperAdmin || (farmRole && allowedRoles.includes(farmRole))) {
+    if (hasSystemAdmin || (farmRole && allowedRoles.includes(farmRole))) {
       return next();
     }
 

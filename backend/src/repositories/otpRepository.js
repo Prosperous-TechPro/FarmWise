@@ -3,10 +3,7 @@
  * Database access layer for OTP operations
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
+import prisma from '../lib/prisma.js';
 /**
  * Create OTP verification record
  * @param {Object} otpData - OTP data

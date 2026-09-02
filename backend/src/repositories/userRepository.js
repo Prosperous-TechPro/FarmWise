@@ -3,10 +3,7 @@
  * Database access layer for User operations
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
-
+import prisma from '../lib/prisma.js';
 function withRoles(user) {
   if (!user) return user;
   const userRoles = user.userRoles?.map((userRole) => ({
@@ -246,6 +243,14 @@ export async function assignRoleToUser(userId, roleId) {
   });
 }
 
+export async function ensureRole(name, description) {
+  return prisma.role.upsert({
+    where: { name },
+    update: {},
+    create: { name, description },
+  });
+}
+
 export default {
   findUserByEmail,
   findUserByPhone,
@@ -258,4 +263,5 @@ export default {
   getUserPermissions,
   getUserRoles,
   assignRoleToUser,
+  ensureRole,
 };

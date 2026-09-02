@@ -2,9 +2,7 @@
  * Crop repository
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 export async function listCrops(filters = {}) {
   return prisma.crop.findMany({

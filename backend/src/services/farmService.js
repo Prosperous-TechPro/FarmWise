@@ -28,11 +28,14 @@ export async function createFarmService(input) {
     throw error;
   }
 
-  return createFarm(validation.normalizedData);
+  return createFarm({
+    ...validation.normalizedData,
+    ownerId: input.ownerId,
+  });
 }
 
-export async function listUserFarmsService(userId) {
-  return listUserFarms(userId);
+export async function listUserFarmsService(userId, roles = []) {
+  return listUserFarms(userId, roles.some((role) => ['ADMIN', 'SUPERADMIN'].includes(role)));
 }
 
 export async function getFarmDetailService(farmId) {

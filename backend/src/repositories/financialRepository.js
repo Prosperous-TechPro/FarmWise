@@ -2,9 +2,7 @@
  * Generic financial repository for expense, sale, loss, and budget records.
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 
 export async function listExpensesByFarm(farmId, filters = {}) {
   return prisma.expense.findMany({

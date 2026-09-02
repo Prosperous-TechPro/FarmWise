@@ -1,10 +1,8 @@
 /** Retry-safe background processing boundary for durable notification events. */
 
-import { PrismaClient } from '@prisma/client';
 import { createLogger } from '../utils/logger.js';
 import { processDomainEvent } from './notificationEventService.js';
-
-const prisma = new PrismaClient();
+import prisma from '../lib/prisma.js';
 const logger = createLogger('notification-jobs');
 
 export async function processPendingNotificationEvents(limit = 50) {

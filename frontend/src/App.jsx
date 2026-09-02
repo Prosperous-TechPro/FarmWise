@@ -1,13 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import apiClient from './services/api';
 import DashboardLayout from './components/layout/DashboardLayout';
 import './App.css';
 
 const TOKEN_KEY = 'farmwise.accessToken';
+const WORKSPACE_CACHE_KEY = 'farmwise.workspace';
 
 function getStoredUser() {
   try { return JSON.parse(localStorage.getItem('farmwise.user') || 'null'); } catch { return null; }
+}
+
+function getCachedWorkspace() {
+  try { return JSON.parse(sessionStorage.getItem(WORKSPACE_CACHE_KEY) || 'null'); } catch { return null; }
+}
+
+function hasSystemAdminRole(user) {
+  return Array.isArray(user?.roles) && user.roles.some((role) => {
+    const roleName = typeof role === 'string' ? role : role?.role?.name || role?.name;
+    return ['ADMIN', 'SUPERADMIN'].includes(roleName);
+  });
 }
 
 function AppContent() {
@@ -18,30 +30,73 @@ function AppContent() {
   const [farms, setFarms] = useState([]);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(false);
+  const workspaceRequestRef = useRef(0);
+  const isSystemAdmin = hasSystemAdminRole(user);
 
   const signOut = async () => {
     try { if (token) await apiClient.post('/auth/logout', {}); } catch { /* local sign-out still completes */ }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('farmwise.refreshToken');
     localStorage.removeItem('farmwise.user');
+    sessionStorage.removeItem(WORKSPACE_CACHE_KEY);
     apiClient.setAuthToken(null);
     setToken(null); setUser(null); setOverview(null); setFarms([]);
   };
 
   const loadWorkspace = async () => {
+    const requestId = ++workspaceRequestRef.current;
     setLoading(true); setNotice(null);
     try {
-      const [overviewResponse, farmsResponse] = await Promise.all([
-        apiClient.get('/dashboard/overview'), apiClient.get('/farms'),
-      ]);
-      setOverview(overviewResponse.data); setFarms(farmsResponse.data || []);
+      const requests = isSystemAdmin
+        ? [apiClient.get('/farms', { timeout: 20000 }), apiClient.get('/admin/dashboard/summary', { timeout: 20000 })]
+        : [apiClient.get('/dashboard/overview', { timeout: 20000 }), apiClient.get('/farms', { timeout: 20000 })];
+      const [firstResult, farmsResult] = await Promise.allSettled(requests);
+      if (firstResult.status === 'rejected' || farmsResult.status === 'rejected') {
+        if (requestId !== workspaceRequestRef.current) return;
+        const failed = firstResult.status === 'rejected' ? firstResult.reason : farmsResult.reason;
+        if (failed.status === 401 || failed.status === 403) return signOut();
+        if (!(isSystemAdmin && farmsResult.status === 'rejected')) {
+          setNotice(failed.message || 'Some workspace data is taking longer than expected.');
+        }
+      }
+      const firstResponse = firstResult.status === 'fulfilled' ? firstResult.value : null;
+      const secondResponse = farmsResult.status === 'fulfilled' ? farmsResult.value : null;
+      const overviewResponse = isSystemAdmin ? null : firstResponse;
+      const farmsResponse = isSystemAdmin ? firstResponse : secondResponse;
+      setOverview(overviewResponse?.data || null);
+      setFarms(Array.isArray(farmsResponse?.data) ? farmsResponse.data : []);
+      try {
+        sessionStorage.setItem(WORKSPACE_CACHE_KEY, JSON.stringify({
+          overview: overviewResponse?.data || null,
+          farms: Array.isArray(farmsResponse?.data) ? farmsResponse.data : [],
+        }));
+      } catch { /* cache is optional */ }
+      const adminSummaryResponse = isSystemAdmin ? secondResponse : null;
+      if (requestId !== workspaceRequestRef.current) return;
+      if (isSystemAdmin && adminSummaryResponse?.data?.totalUsers !== undefined) {
+        setOverview((current) => ({
+          ...(current || {}),
+          adminSummary: adminSummaryResponse.data,
+        }));
+      }
     } catch (error) {
       if (error.status === 401 || error.status === 403) signOut();
       else setNotice(error.message || 'Unable to load workspace data');
-    } finally { setLoading(false); }
+    } finally { if (requestId === workspaceRequestRef.current) setLoading(false); }
   };
 
-  useEffect(() => { if (token) { apiClient.setAuthToken(token); loadWorkspace(); } }, [token]);
+  useEffect(() => {
+    if (token) {
+      const cached = getCachedWorkspace();
+      if (cached) {
+        setOverview(cached.overview || null);
+        setFarms(Array.isArray(cached.farms) ? cached.farms : []);
+      }
+      apiClient.setAuthToken(token);
+      if (view === 'dashboard' || view === 'farms') loadWorkspace();
+      else { workspaceRequestRef.current += 1; setLoading(false); setNotice(null); }
+    }
+  }, [token, view]);
 
   if (!token) return <Login onLogin={(session) => {
     localStorage.setItem(TOKEN_KEY, session.accessToken);
@@ -52,21 +107,36 @@ function AppContent() {
 
   const firstName = user?.firstName || user?.first_name || 'Farmer';
   return (
-    <DashboardLayout view={view} onViewChange={setView} user={user} onSignOut={signOut} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)}>
-        {view === 'dashboard' && <Dashboard overview={overview} farms={farms} onViewFarms={() => setView('farms')} />}
+    <DashboardLayout view={view} onViewChange={setView} user={user} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)}>
+        {view === 'dashboard' && <Dashboard overview={overview} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />}
         {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { setFarms([...farms, farm]); setNotice('Farm created successfully.'); }} />}
         {view === 'records' && <Records farms={farms} />}
+        {view === 'community' && <CommunityFeed user={user} />}
+        {view === 'notifications' && <Notifications />}
+        {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice('Profile updated successfully.'); }} />}
+        {view === 'users' && <UserManagement />}
+        {view === 'workers' && <WorkerManagement farms={farms} />}
+        {view === 'analytics' && <Analytics overview={overview} />}
     </DashboardLayout>
   );
 }
 
 function Login({ onLogin }) {
+  const [mode, setMode] = useState('login');
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); try {
     const result = await apiClient.post('/auth/login', { email, password }); onLogin(result.data);
   } catch (err) { setError(err.message || 'Sign in failed. Check your details.'); } finally { setBusy(false); } };
-  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div><form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot">New to FarmWise? <span>Ask your farm administrator for an invite.</span></p></form></div>;
+  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div>{mode === 'login' ? <form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot">New farm owner? <button type="button" className="text-button" onClick={() => { setMode('register'); setError(''); }}>Create an account</button></p></form> : <Register onBack={() => { setMode('login'); setError(''); }} />}</div>;
+}
+
+function Register({ onBack }) {
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '', verificationMethod: 'EMAIL' });
+  const [error, setError] = useState(''); const [success, setSuccess] = useState(''); const [busy, setBusy] = useState(false);
+  const update = (field) => (event) => setForm({ ...form, [field]: event.target.value });
+  const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); setSuccess(''); try { const result = await apiClient.post('/auth/register', form); setSuccess(result.message || 'Account created. Check your verification code.'); } catch (err) { setError(err.message || 'Registration failed.'); } finally { setBusy(false); } };
+  return <form className="auth-form register-form" onSubmit={submit}><button type="button" className="back-button" onClick={onBack}>← Back to sign in</button><p className="eyebrow">NEW FARM OWNER</p><h2>Create your account</h2><p className="muted">Start managing your farm with clarity.</p>{error && <div className="notice error">{error}</div>}{success && <div className="notice success">{success}</div>}<div className="form-row"><label>First name<input value={form.firstName} onChange={update('firstName')} required autoComplete="given-name" /></label><label>Last name<input value={form.lastName} onChange={update('lastName')} required autoComplete="family-name" /></label></div><label>Email address<input type="email" value={form.email} onChange={update('email')} required autoComplete="email" /></label><label>Phone number<input type="tel" value={form.phone} onChange={update('phone')} required autoComplete="tel" placeholder="+233..." /></label><div className="form-row"><label>Password<PasswordInput value={form.password} onChange={update('password')} autoComplete="new-password" /></label><label>Confirm password<PasswordInput value={form.confirmPassword} onChange={update('confirmPassword')} autoComplete="new-password" /></label></div><label>Verification method<select value={form.verificationMethod} onChange={update('verificationMethod')}><option value="EMAIL">Email code</option><option value="SMS">SMS code</option></select></label><button className="primary-button" disabled={busy}>{busy ? 'Creating account...' : 'Create farm owner account'} <span>→</span></button></form>;
 }
 
 function PasswordInput({ value, onChange, autoComplete }) {
@@ -74,25 +144,308 @@ function PasswordInput({ value, onChange, autoComplete }) {
   return <span className="password-field"><input type={visible ? 'text' : 'password'} value={value} onChange={onChange} required autoComplete={autoComplete} /><button type="button" className="password-toggle" onClick={() => setVisible(!visible)} aria-label={visible ? 'Hide password' : 'Show password'} title={visible ? 'Hide password' : 'Show password'}>{visible ? 'Hide' : 'Show'}</button></span>;
 }
 
-function Dashboard({ overview, farms, onViewFarms }) {
+function Dashboard({ overview, farms, loading, onViewFarms, isSystemAdmin, onViewChange }) {
   const stats = overview?.summary || overview || {};
+  const adminSummary = overview?.adminSummary || {};
+  const systemSummary = adminSummary.totalUsers ? adminSummary : null;
+
   return <>
-    <section className="hero-band"><div><p className="eyebrow">OPERATIONS OVERVIEW</p><h2>Keep the important things growing.</h2><p className="muted">A live view of your farms, people, and production.</p></div><button className="outline-button" onClick={onViewFarms}>Manage farms <span>↗</span></button></section>
-    <section className="stat-grid"><Stat label="Active farms" value={farms.length || stats.farmCount || 0} detail="Connected to your account" tone="green" /><Stat label="Livestock" value={stats.livestockCount || stats.totalLivestock || '—'} detail="Across all farms" tone="yellow" /><Stat label="Production" value={stats.productionCount || stats.totalProduction || '—'} detail="Records this season" tone="blue" /><Stat label="Open alerts" value={stats.alertCount || stats.activeAlerts || '—'} detail="Needs your attention" tone="red" /></section>
-    <section className="content-grid"><div className="panel"><div className="panel-heading"><div><p className="eyebrow">YOUR FARMS</p><h3>Farm portfolio</h3></div><button className="text-button" onClick={onViewFarms}>View all ↗</button></div>{farms.length ? farms.slice(0, 4).map((farm) => <div className="farm-row" key={farm.id}><span className="farm-avatar">{(farm.name || 'F')[0]}</span><div><strong>{farm.name}</strong><small>{farm.location || farm.address || 'Location not set'}</small></div><span className="row-arrow">→</span></div>) : <Empty text="Create your first farm to start tracking operations." onClick={onViewFarms} />}</div><div className="panel pulse"><p className="eyebrow">QUICK START</p><h3>Build your farm picture</h3><p className="muted">Add farms and fields first, then layer in crops, livestock, and costs as the season unfolds.</p><button className="primary-button compact" onClick={onViewFarms}>Open farm manager <span>→</span></button></div></section>
+    <section className="hero-band"><div><p className="eyebrow">{isSystemAdmin ? 'SYSTEM-WIDE OVERVIEW' : 'OPERATIONS OVERVIEW'}</p><h2>{isSystemAdmin ? 'Manage the full FarmWise network.' : 'Keep the important things growing.'}</h2><p className="muted">{isSystemAdmin ? 'Monitor user health, farm performance, revenue, and alerts across the platform.' : 'A live view of your farms, people, and production.'}</p></div><button className="outline-button" onClick={onViewFarms}>{isSystemAdmin ? 'Open admin dashboard' : 'Manage farms'} <span>↗</span></button></section>
+    {loading && !overview && !farms.length && <div className="dashboard-skeleton" aria-label="Loading dashboard"><span /><span /><span /><span /></div>}
+    <section className={`stat-grid${loading && !overview && !farms.length ? ' is-loading' : ''}`}>
+      {isSystemAdmin && systemSummary ? (
+        <>
+          <Stat label="Total users" value={systemSummary.totalUsers || 0} detail="Registered accounts" tone="green" onClick={() => onViewChange?.('users')} />
+          <Stat label="Active farms" value={systemSummary.totalFarms || 0} detail="Operational farms" tone="yellow" onClick={onViewFarms} />
+          <Stat label="Workers" value={systemSummary.totalWorkers || 0} detail="Assigned workforce" tone="blue" onClick={() => onViewChange?.('workers')} />
+          <Stat label="Net profit" value={`GHS ${Number(systemSummary.netProfit || 0).toLocaleString()}`} detail="System-wide result" tone="red" onClick={() => onViewChange?.('analytics')} />
+        </>
+      ) : (
+        <>
+          <Stat label="Active farms" value={farms.length || stats.farmCount || 0} detail="Connected to your account" tone="green" onClick={onViewFarms} />
+          <Stat label="Livestock" value={stats.livestockCount || stats.totalLivestock || '—'} detail="Across all farms" tone="yellow" onClick={() => onViewChange?.('records')} />
+          <Stat label="Production" value={stats.productionCount || stats.totalProduction || '—'} detail="Records this season" tone="blue" onClick={() => onViewChange?.('records')} />
+          <Stat label="Open alerts" value={stats.alertCount || stats.activeAlerts || '—'} detail="Needs your attention" tone="red" onClick={() => onViewChange?.('notifications')} />
+        </>
+      )}
+    </section>
+    <section className="content-grid"><div className="panel"><div className="panel-heading"><div><p className="eyebrow">{isSystemAdmin ? 'SYSTEM METRICS' : 'YOUR FARMS'}</p><h3>{isSystemAdmin ? 'Admin overview' : 'Farm portfolio'}</h3></div><button className="text-button" onClick={onViewFarms}>{isSystemAdmin ? 'View network ↗' : 'View all ↗'}</button></div>{farms.length ? farms.slice(0, 4).map((farm) => <div className="farm-row" key={farm.id}><span className="farm-avatar">{(farm.name || 'F')[0]}</span><div><strong>{farm.name}</strong><small>{farm.location || farm.address || 'Location not set'}</small></div><span className="row-arrow">→</span></div>) : <Empty text={isSystemAdmin ? 'No farm records available yet.' : 'Create your first farm to start tracking operations.'} onClick={onViewFarms} />}</div><div className="panel pulse"><p className="eyebrow">{isSystemAdmin ? 'ADMIN COMMANDS' : 'QUICK START'}</p><h3>{isSystemAdmin ? 'Operations at a glance' : 'Build your farm picture'}</h3><p className="muted">{isSystemAdmin ? 'Review overall performance, user activity, and system health from one screen.' : 'Add farms and fields first, then layer in crops, livestock, and costs as the season unfolds.'}</p><button className="primary-button compact" onClick={onViewFarms}>{isSystemAdmin ? 'Open admin controls' : 'Open farm manager'} <span>→</span></button></div></section>
   </>;
 }
 
-function Stat({ label, value, detail, tone }) { return <div className={`stat-card ${tone}`}><span className="stat-icon" /><p>{label}</p><strong>{value}</strong><small>{detail}</small></div>; }
+function Stat({ label, value, detail, tone, onClick }) { return <button className={`stat-card ${tone}`} onClick={onClick} style={{border: 'none', background: 'inherit', cursor: onClick ? 'pointer' : 'default', padding: 0, width: '100%', textAlign: 'inherit'}}><span className="stat-icon" /><p>{label}</p><strong>{value}</strong><small>{detail}</small></button>; }
 function Empty({ text, onClick }) { return <div className="empty"><p>{text}</p><button className="text-button" onClick={onClick}>Get started →</button></div>; }
 
 function Farms({ farms, onCreated }) {
+  farms = Array.isArray(farms) ? farms : [];
   const [open, setOpen] = useState(false); const [name, setName] = useState(''); const [location, setLocation] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const create = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { const result = await apiClient.post('/farms', { name, location }); onCreated(result.data); setName(''); setLocation(''); setOpen(false); } catch (err) { setError(err.message || 'Could not create farm.'); } finally { setBusy(false); } };
   return <section><div className="section-heading"><div><p className="eyebrow">PORTFOLIO</p><h2>My farms</h2><p className="muted">Keep each operation organized in one place.</p></div><button className="primary-button" onClick={() => setOpen(!open)}>+ Add farm</button></div>{open && <form className="create-form" onSubmit={create}>{error && <div className="notice error">{error}</div>}<label>Farm name<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Green Valley Farm" /></label><label>Location<input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Town or region" /></label><button className="primary-button" disabled={busy}>{busy ? 'Creating...' : 'Create farm'}</button></form>}<div className="farm-grid">{farms.map((farm) => <article className="farm-card" key={farm.id}><div className="farm-card-top"><span className="farm-avatar large">{(farm.name || 'F')[0]}</span><span className="live-badge">ACTIVE</span></div><h3>{farm.name}</h3><p>{farm.location || farm.address || 'Location not set'}</p><div className="farm-card-foot"><span>Farm workspace</span><span>→</span></div></article>)}{!farms.length && <div className="panel empty-wide"><h3>No farms yet</h3><p className="muted">Create a farm to unlock fields, livestock, crop cycles, and financial records.</p></div>}</div></section>;
 }
 
-function Records({ farms }) { const items = [['Fields', 'Map boundaries, acreage, and field activity', 'farm'], ['Livestock', 'Track animals, health, and breeding records', 'livestock'], ['Crops', 'Monitor cycles, inputs, and growth', 'crops'], ['Finance', 'Follow expenses, sales, and profitability', 'finance'], ['Inventory', 'Know what is in storage and where', 'inventory'], ['Activities', 'Log work, observations, and harvests', 'activity']]; return <section><div className="section-heading"><div><p className="eyebrow">OPERATIONS</p><h2>Records</h2><p className="muted">The working layers behind every farm decision.</p></div><span className="record-count">{farms.length} farm{farms.length === 1 ? '' : 's'} connected</span></div><div className="record-grid">{items.map(([title, text, icon]) => <article className="record-card" key={title}><span className={`record-icon ${icon}`} /><h3>{title}</h3><p>{text}</p><span className="coming">API ready · UI next</span></article>)}</div></section>; }
+function Records({ farms }) {
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const items = [
+    ['Fields', 'Map boundaries, acreage, and field activity', 'farm', 'Organize field boundaries, acreage, soil notes, and recent field work.'],
+    ['Livestock', 'Track animals, health, and breeding records', 'livestock', 'Keep animal groups, health checks, treatments, and breeding records together.'],
+    ['Crops', 'Monitor cycles, inputs, and growth', 'crops', 'Follow crop cycles from planting through growth observations and harvest.'],
+    ['Finance', 'Follow expenses, sales, and profitability', 'finance', 'Track the costs and sales that shape profitability across your farms.'],
+    ['Inventory', 'Know what is in storage and where', 'inventory', 'Manage stock levels, storage locations, receipts, issues, and transfers.'],
+    ['Activities', 'Log work, observations, and harvests', 'activity', 'Record field work, observations, tasks, and harvest activity as it happens.'],
+  ];
+  const selected = items.find(([title]) => title === selectedRecord);
+
+  if (selected) {
+    return <section className="record-page">
+      <button className="back-button" type="button" onClick={() => setSelectedRecord(null)}>← Back to records</button>
+      <div className="record-page-heading"><span className={`record-icon ${selected[2]}`} /><div><p className="eyebrow">{selected[0].toUpperCase()}</p><h2>{selected[0]}</h2><p className="muted">{selected[3]}</p></div></div>
+      <div className="record-content-panel"><div><h3>{selected[0]} records</h3><p className="muted">Choose a farm to start viewing and managing {selected[0].toLowerCase()} records.</p></div><div className="record-detail-actions"><select aria-label={`Select farm for ${selected[0]}`} defaultValue=""><option value="" disabled>Select a farm</option>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select><button className="primary-button" type="button">Add record <span>+</span></button></div></div>
+    </section>;
+  }
+
+  return <section><div className="section-heading"><div><p className="eyebrow">OPERATIONS</p><h2>Records</h2><p className="muted">The working layers behind every farm decision.</p></div><span className="record-count">{farms.length} farm{farms.length === 1 ? '' : 's'} connected</span></div><div className="record-grid">{items.map(([title, text, icon]) => <button className="record-card" type="button" key={title} onClick={() => setSelectedRecord(title)}><span className={`record-icon ${icon}`} /><h3>{title}</h3><p>{text}</p><span className="record-open">Open records <span aria-hidden="true">→</span></span></button>)}</div></section>;
+}
+
+function CommunityFeed({ user }) {
+  const [posts, setPosts] = useState([]);
+  const [body, setBody] = useState('');
+  const [category, setCategory] = useState('General Agriculture');
+  const [media, setMedia] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [cursor, setCursor] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [editingBody, setEditingBody] = useState('');
+  const [editingCategory, setEditingCategory] = useState('General Agriculture');
+
+  const load = async (nextCursor) => {
+    try {
+      const result = await apiClient.get(`/community/posts${nextCursor ? `?cursor=${nextCursor}` : ''}`, { timeout: 20000 });
+      setPosts(nextCursor ? [...posts, ...result.data.posts] : result.data.posts);
+      setCursor(result.data.nextCursor);
+    } catch (err) {
+      setError(err.message || 'Unable to load community feed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const publish = async (event) => {
+    event.preventDefault();
+    if (!body.trim() && !media.length) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await apiClient.post('/community/posts', { body, category, media });
+      setPosts([result.data, ...posts]);
+      setBody('');
+      setMedia([]);
+    } catch (err) {
+      setError(err.message || 'Could not publish post.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const chooseMedia = (event) => {
+    const files = Array.from(event.target.files || []).slice(0, 4);
+    Promise.all(files.map((file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ mediaType: file.type.startsWith('video/') ? 'video' : 'image', dataUrl: reader.result });
+      reader.readAsDataURL(file);
+    }))).then(setMedia);
+  };
+
+  const react = async (post, liked) => {
+    try {
+      await apiClient.request(`/community/posts/${post.id}/likes`, { method: liked ? 'DELETE' : 'POST' });
+      setPosts(posts.map((item) => item.id === post.id ? { ...item, _count: { ...item._count, likes: item._count.likes + (liked ? -1 : 1) }, viewerLiked: !liked } : item));
+    } catch (err) {
+      setError(err.message || 'Could not update like.');
+    }
+  };
+
+  const startEdit = (post) => {
+    setEditingPostId(post.id);
+    setEditingBody(post.body);
+    setEditingCategory(post.category);
+  };
+
+  const saveEdit = async (postId) => {
+    if (!editingBody.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      const result = await apiClient.put(`/community/posts/${postId}`, { body: editingBody, category: editingCategory });
+      setPosts(posts.map((p) => p.id === postId ? result.data : p));
+      setEditingPostId(null);
+      setEditingBody('');
+      setEditingCategory('General Agriculture');
+    } catch (err) {
+      setError(err.message || 'Could not edit post.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deletePost = async (postId) => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
+    setBusy(true);
+    setError('');
+    try {
+      await apiClient.delete(`/community/posts/${postId}`);
+      setPosts(posts.filter((p) => p.id !== postId));
+    } catch (err) {
+      setError(err.message || 'Could not delete post.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="community-page">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">FARMWISE COMMUNITY</p>
+          <h2>Share what is growing.</h2>
+          <p className="muted">Practical ideas, farm experiences, and questions from the community.</p>
+        </div>
+      </div>
+      <form className="community-composer" onSubmit={publish}>
+        {error && <div className="notice error">{error}</div>}
+        <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="What's happening on your farm?" maxLength="5000" />
+        <div className="composer-actions">
+          <label className="media-button">
+            Add photo or video
+            <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/webm" multiple onChange={chooseMedia} />
+          </label>
+          <select value={category} onChange={(event) => setCategory(event.target.value)}>
+            <option>General Agriculture</option>
+            <option>Farming Tips</option>
+            <option>Livestock</option>
+            <option>Crops</option>
+            <option>Harvest</option>
+            <option>Question</option>
+          </select>
+          <button className="primary-button" disabled={busy}>{busy ? 'Publishing...' : 'Publish post'} <span>→</span></button>
+        </div>
+        {media.length > 0 && <small className="muted">{media.length} media item{media.length === 1 ? '' : 's'} ready to publish</small>}
+      </form>
+      <div className="community-list">
+        {loading && <div className="loading-line" aria-label="Loading community posts" />}
+        {posts.map((post) => (
+          <CommunityPost
+            key={post.id}
+            post={post}
+            onLike={react}
+            currentUserId={user?.id}
+            onEdit={startEdit}
+            onDelete={deletePost}
+            onSaveEdit={saveEdit}
+            editingPostId={editingPostId}
+            editingBody={editingBody}
+            setEditingBody={setEditingBody}
+            editingCategory={editingCategory}
+            setEditingCategory={setEditingCategory}
+          />
+        ))}
+        {!loading && !posts.length && <div className="panel empty-wide"><h3>No community posts yet</h3><p className="muted">Start the conversation with a farm update or useful tip.</p></div>}
+        {cursor && <button className="outline-button load-more" onClick={() => load(cursor)}>Load more posts</button>}
+      </div>
+    </section>
+  );
+}
+
+function CommunityPost({ post, onLike, currentUserId, onEdit, onDelete, onSaveEdit, editingPostId, editingBody, setEditingBody, editingCategory, setEditingCategory }) {
+  const author = post.author || {};
+  const isAuthor = currentUserId === post.authorId;
+  const isEditing = editingPostId === post.id;
+
+  return (
+    <article className="community-post">
+      <div className="community-author">
+        <span className="community-avatar">
+          {author.profilePictureUrl ? <img loading="lazy" decoding="async" src={author.profilePictureUrl} alt="" /> : (author.firstName || 'F')[0].toUpperCase()}
+        </span>
+        <div>
+          <strong>{author.firstName} {author.lastName}</strong>
+          <small>{post.category || 'Agriculture'} · {new Date(post.createdAt).toLocaleDateString()}</small>
+        </div>
+        <div className="post-actions">
+          {isAuthor && (
+            <>
+              <button className="text-button" title="Edit post" onClick={() => onEdit(post)}>✎</button>
+              <button className="text-button delete-button" title="Delete post" onClick={() => onDelete(post.id)}>✕</button>
+            </>
+          )}
+          <button className="text-button report-button" title="Report post">Report</button>
+        </div>
+      </div>
+      {isEditing ? (
+        <div className="edit-post-form">
+          <textarea value={editingBody} onChange={(e) => setEditingBody(e.target.value)} maxLength="5000" />
+          <select value={editingCategory} onChange={(e) => setEditingCategory(e.target.value)}>
+            <option>General Agriculture</option>
+            <option>Farming Tips</option>
+            <option>Livestock</option>
+            <option>Crops</option>
+            <option>Harvest</option>
+            <option>Question</option>
+          </select>
+          <div className="edit-actions">
+            <button className="primary-button" onClick={() => onSaveEdit(post.id)}>Save changes</button>
+            <button className="outline-button" onClick={() => { setEditingBody(''); setEditingCategory('General Agriculture'); }}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {post.body && <p className="community-body">{post.body}</p>}
+          {post.media?.length > 0 && <div className="community-media">{post.media.map((item) => item.mediaType === 'video' ? <video controls preload="metadata" src={item.dataUrl} key={item.id} /> : <img loading="lazy" decoding="async" src={item.dataUrl} alt="Community post" key={item.id} />)}</div>}
+        </>
+      )}
+      <div className="community-actions">
+        <button className={post.viewerLiked ? 'text-button liked' : 'text-button'} onClick={() => onLike(post, post.viewerLiked)}>{post.viewerLiked ? 'Liked' : 'Like'} · {post._count?.likes || 0}</button>
+        <span>{post._count?.comments || 0} comments</span>
+      </div>
+    </article>
+  );
+}
+
+function Notifications() {
+  const [items, setItems] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  useEffect(() => { apiClient.get('/notifications').then((result) => setItems(result.data || [])).catch((err) => setError(err.message || 'Unable to load notifications.')).finally(() => setLoading(false)); }, []);
+  const markRead = async (item) => { if (item.status !== 'UNREAD') return; try { await apiClient.patch(`/notifications/${item.id}/read`, {}); setItems(items.map((entry) => entry.id === item.id ? { ...entry, status: 'READ' } : entry)); } catch (err) { setError(err.message || 'Unable to mark notification as read.'); } };
+  return <section><div className="section-heading"><div><p className="eyebrow">INBOX</p><h2>Notifications</h2><p className="muted">Updates and activity connected to your FarmWise account.</p></div></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading notifications" /> : <div className="notification-list">{items.map((item) => <button className={`notification-item ${item.status === 'UNREAD' ? 'unread' : ''}`} key={item.id} onClick={() => markRead(item)}><span className="notification-item-icon">&#128276;</span><span><strong>{item.title}</strong><small>{item.message}</small><em>{new Date(item.createdAt).toLocaleString()}</em></span></button>)}{!items.length && <div className="panel empty-wide"><h3>No notifications</h3><p className="muted">You are all caught up.</p></div>}</div>}</section>;
+}
+
+function Account({ user, onUpdated }) {
+  const [form, setForm] = useState({ firstName: user?.firstName || '', lastName: user?.lastName || '', phone: user?.phone || '', profilePictureUrl: user?.profilePictureUrl || null });
+  const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { const result = await apiClient.patch('/auth/me', form); onUpdated(result.data.user); } catch (err) { setError(err.message || 'Could not update your profile.'); } finally { setBusy(false); } };
+  const update = (field) => (event) => setForm({ ...form, [field]: event.target.value });
+  const selectPicture = (event) => { const file = event.target.files?.[0]; if (!file) return; if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 4 * 1024 * 1024) { setError('Choose a PNG, JPG, or WEBP image smaller than 4 MB.'); return; } const reader = new FileReader(); reader.onload = () => setForm({ ...form, profilePictureUrl: reader.result }); reader.readAsDataURL(file); };
+  return <section><div className="section-heading"><div><p className="eyebrow">ACCOUNT</p><h2>Personal details</h2><p className="muted">Keep your FarmWise contact details current.</p></div></div><form className="account-form" onSubmit={submit}>{error && <div className="notice error">{error}</div>}<div className="profile-picture-row"><div className="profile-picture">{form.profilePictureUrl ? <img src={form.profilePictureUrl} alt="Profile" /> : (user?.firstName || 'F')[0].toUpperCase()}</div><label className="picture-picker">Profile picture<input type="file" accept="image/png,image/jpeg,image/webp" onChange={selectPicture} /></label></div><div className="form-row"><label>First name<input value={form.firstName} onChange={update('firstName')} required autoComplete="given-name" /></label><label>Last name<input value={form.lastName} onChange={update('lastName')} required autoComplete="family-name" /></label></div><label>Phone number<input value={form.phone} onChange={update('phone')} required autoComplete="tel" /></label><label>Email address<input value={user?.email || ''} disabled /></label><button className="primary-button" disabled={busy}>{busy ? 'Saving...' : 'Save changes'} <span>→</span></button></form></section>;
+}
+
+function UserManagement() {
+  const [users, setUsers] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  useEffect(() => { apiClient.get('/admin/users').then((result) => setUsers(result.data || [])).catch((err) => setError(err.message || 'Unable to load users.')).finally(() => setLoading(false)); }, []);
+  return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>Registered users</h2><p className="muted">View and manage all farm owners and team members.</p></div><span className="record-count">{users.length} user{users.length === 1 ? '' : 's'} registered</span></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading users" /> : <div className="farm-grid">{users.map((u) => <div className="farm-card" key={u.id}><div className="farm-card-top"><span className="farm-avatar large">{u.profilePictureUrl ? <img src={u.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : (u.firstName || 'U')[0]}</span><span className="live-badge">{u.status}</span></div><h3>{u.firstName} {u.lastName}</h3><p>{u.email}</p><div className="farm-card-foot"><span>{u.roles?.map(r => r.role?.name).join(', ') || 'User'}</span><span>→</span></div></div>) }{!users.length && <div className="panel empty-wide"><h3>No users found</h3><p className="muted">Users will appear here as they register.</p></div>}</div>}</section>;
+}
+
+function WorkerManagement({ farms }) {
+  const [workers, setWorkers] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+  useEffect(() => { apiClient.get('/admin/workers').then((result) => setWorkers(result.data || [])).catch((err) => setError(err.message || 'Unable to load workers.')).finally(() => setLoading(false)); }, []);
+  return <section><div className="section-heading"><div><p className="eyebrow">WORKFORCE</p><h2>Farm workers & staff</h2><p className="muted">Manage team members assigned to farms.</p></div><span className="record-count">{workers.length} worker{workers.length === 1 ? '' : 's'} assigned</span></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading workers" /> : <div className="farm-grid">{workers.map((w) => <div className="farm-card" key={w.id}><div className="farm-card-top"><span className="farm-avatar large">{w.profilePictureUrl ? <img src={w.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : (w.firstName || 'W')[0]}</span><span className="live-badge">{w.role}</span></div><h3>{w.firstName} {w.lastName}</h3><p>{w.email}</p><div className="farm-card-foot"><span>{w.farmName || 'Unassigned'}</span><span>→</span></div></div>) }{!workers.length && <div className="panel empty-wide"><h3>No workers assigned</h3><p className="muted">Assign team members to farms to see them here.</p></div>}</div>}</section>;
+}
+
+function Analytics({ overview }) {
+  const adminSummary = overview?.adminSummary || {};
+  return <section><div className="section-heading"><div><p className="eyebrow">FINANCIAL ANALYTICS</p><h2>Network performance</h2><p className="muted">System-wide financial metrics and revenue trends.</p></div></div><div className="content-grid"><div className="panel"><p className="eyebrow">PROFIT & LOSS</p><h3>Net profit</h3><p style={{fontSize:'32px', fontWeight:'700', color:'var(--green)', margin:'20px 0'}}>GHS {Number(adminSummary.netProfit || 0).toLocaleString()}</p><small>System-wide net result across all active farms</small></div><div className="panel"><p className="eyebrow">SUMMARY</p><h3>Key metrics</h3><div style={{display:'grid', gap:'14px', marginTop:'20px'}}><div><strong>Total revenue</strong><p style={{margin:'6px 0 0', color:'var(--green)'}}>GHS {Number(adminSummary.totalRevenue || 0).toLocaleString()}</p></div><div><strong>Total expenses</strong><p style={{margin:'6px 0 0', color:'var(--red)'}}>GHS {Number(adminSummary.totalExpenses || 0).toLocaleString()}</p></div><div><strong>Active farms</strong><p style={{margin:'6px 0 0', color:'var(--blue)'}}>{adminSummary.totalFarms || 0}</p></div></div></div></div><div className="panel empty-wide" style={{marginTop:'20px'}}><p className="eyebrow">UPCOMING</p><h3>Advanced analytics</h3><p className="muted">Detailed revenue forecasts, seasonal trends, and farm-by-farm breakdowns coming soon.</p></div></section>;
+}
 
 export default function App() {
   return (

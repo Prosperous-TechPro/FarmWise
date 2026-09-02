@@ -11,6 +11,7 @@ import {
   validatePasswordChange,
   validatePasswordReset,
   validateRefreshToken,
+  validateProfileUpdate,
 } from '../validators/authValidator.js';
 import {
   registerUser,
@@ -24,7 +25,7 @@ import {
   resetPassword,
 } from '../services/authService.js';
 import { generateAndSendOtp, verifyOtp, resendOtp } from '../services/otpService.js';
-import { findUserById } from '../repositories/userRepository.js';
+import { findUserById, findUserByPhone, updateUser } from '../repositories/userRepository.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -617,6 +618,24 @@ export async function getCurrentUser(req, res) {
   }
 }
 
+export async function updateCurrentUser(req, res) {
+  const validation = validateProfileUpdate(req.body);
+  if (!validation.isValid) {
+    return res.status(400).json({ success: false, message: 'Validation failed', errors: validation.errors });
+  }
+
+  if (validation.normalizedData.phone) {
+    const existingUser = await findUserByPhone(validation.normalizedData.phone);
+    if (existingUser && existingUser.id !== req.user.id) {
+      return res.status(409).json({ success: false, message: 'Phone number is already registered' });
+    }
+  }
+
+  const user = await updateUser(req.user.id, validation.normalizedData);
+  const { passwordHash, ...userSafeData } = user;
+  return res.status(200).json({ success: true, message: 'Profile updated successfully', data: { user: userSafeData } });
+}
+
 export default {
   register,
   verifyOtpEndpoint,
@@ -628,4 +647,5 @@ export default {
   changePasswordEndpoint,
   resetPasswordEndpoint,
   getCurrentUser,
+  updateCurrentUser,
 };

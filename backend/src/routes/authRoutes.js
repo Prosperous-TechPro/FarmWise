@@ -15,6 +15,7 @@ import {
   changePasswordEndpoint,
   resetPasswordEndpoint,
   getCurrentUser,
+  updateCurrentUser,
 } from '../controllers/authController.js';
 import { authenticate, authorize } from '../middleware/authMiddleware.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
@@ -52,6 +53,7 @@ router.post('/refresh', asyncHandler(refreshTokenEndpoint));
 // Get current user info
 // GET /api/v1/auth/me
 router.get('/me', authenticate, authorize, asyncHandler(getCurrentUser));
+router.patch('/me', authenticate, authorize, asyncHandler(updateCurrentUser));
 
 // Change password
 // POST /api/v1/auth/change-password

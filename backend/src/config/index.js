@@ -14,6 +14,23 @@ dotenv.config();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Configuration object
+const defaultCorsOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'https://frontend-eight-rho-92.vercel.app',
+];
+
+const normalizeCorsOrigins = (value) => (value || '')
+  .split(',')
+  .map(url => url.trim())
+  .filter(Boolean)
+  .reduce((unique, url) => {
+    if (!unique.includes(url)) unique.push(url);
+    return unique;
+  }, []);
+
 const config = {
   // Environment
   env: process.env.NODE_ENV || 'development',
@@ -23,18 +40,11 @@ const config = {
 
   // Server
   port: parseInt(process.env.PORT || '3000', 10),
-  backendUrl: process.env.BACKEND_URL || 'http://localhost:3000',
+  backendUrl: process.env.BACKEND_URL || 'https://victoria-s-kente-shop.onrender.com',
 
   // Frontend
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
-  corsOrigin: (process.env.CORS_ORIGIN || 'http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174')
-    .split(',')
-    .map(url => url.trim())
-    .filter(Boolean)
-    .reduce((unique, url) => {
-      if (!unique.includes(url)) unique.push(url);
-      return unique;
-    }, []),
+  frontendUrl: process.env.FRONTEND_URL || 'https://frontend-eight-rho-92.vercel.app',
+  corsOrigin: normalizeCorsOrigins(process.env.CORS_ORIGIN || defaultCorsOrigins.join(',')),
 
   // Database
   database: {

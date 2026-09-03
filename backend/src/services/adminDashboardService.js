@@ -171,9 +171,47 @@ export async function getWorkersList() {
   });
 }
 
+export async function getAllFarms() {
+  return prisma.farm.findMany({
+    include: {
+      owner: { select: { id: true, email: true, firstName: true, lastName: true } },
+      _count: { select: { farmMembers: true, fields: true, farmActivities: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function updateFarmByAdmin(farmId, data) {
+  return prisma.farm.update({
+    where: { id: farmId },
+    data,
+    include: { owner: { select: { id: true, email: true, firstName: true, lastName: true } } },
+  });
+}
+
+export async function getAllActivities() {
+  return prisma.farmActivity.findMany({
+    take: 100,
+    include: {
+      farm: { select: { id: true, name: true } },
+      user: { select: { id: true, firstName: true, lastName: true, email: true } },
+      assignee: { select: { id: true, firstName: true, lastName: true, email: true } },
+    },
+    orderBy: { activityDate: 'desc' },
+  });
+}
+
+export async function updateActivityByAdmin(activityId, data) {
+  return prisma.farmActivity.update({ where: { id: activityId }, data });
+}
+
 export default {
   buildAdminDashboardSummary,
   getSystemWideDashboardSummary,
   getAllUsers,
   getWorkersList,
+  getAllFarms,
+  updateFarmByAdmin,
+  getAllActivities,
+  updateActivityByAdmin,
 };

@@ -8,9 +8,11 @@ import {
   getFarmById,
   listUserFarms,
   updateFarm,
+  deleteFarm,
   listFarmFields,
   findFieldById,
   updateField,
+  deleteField,
 } from '../repositories/farmRepository.js';
 import {
   validateCreateFarm,
@@ -65,6 +67,16 @@ export async function updateFarmService(farmId, input) {
   }
 
   return updateFarm(farmId, validation.normalizedData);
+}
+
+export async function deleteFarmService(farmId) {
+  const farm = await getFarmById(farmId);
+  if (!farm) {
+    const error = new Error('Farm not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  return deleteFarm(farmId);
 }
 
 export async function createFieldService(farmId, input) {
@@ -126,13 +138,25 @@ export async function updateFieldService(fieldId, input) {
   return updateField(fieldId, validation.normalizedData);
 }
 
+export async function deleteFieldService(fieldId) {
+  const field = await findFieldById(fieldId);
+  if (!field) {
+    const error = new Error('Field not found');
+    error.statusCode = 404;
+    throw error;
+  }
+  return deleteField(fieldId);
+}
+
 export default {
   createFarmService,
   listUserFarmsService,
   getFarmDetailService,
   updateFarmService,
+  deleteFarmService,
   createFieldService,
   listFieldsService,
   getFieldDetailService,
   updateFieldService,
+  deleteFieldService,
 };

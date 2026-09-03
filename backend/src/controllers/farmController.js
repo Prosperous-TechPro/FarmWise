@@ -7,10 +7,12 @@ import {
   listUserFarmsService,
   getFarmDetailService,
   updateFarmService,
+  deleteFarmService,
   createFieldService,
   listFieldsService,
   getFieldDetailService,
   updateFieldService,
+  deleteFieldService,
 } from '../services/farmService.js';
 import { findUserByEmail } from '../repositories/userRepository.js';
 import { addFarmWorker, findFarmMember, listFarmWorkers, updateFarmWorker } from '../repositories/farmRepository.js';
@@ -53,6 +55,11 @@ export async function updateFarm(req, res) {
     data: farm,
     message: 'Farm updated successfully',
   });
+}
+
+export async function deleteFarm(req, res) {
+  await deleteFarmService(req.params.farmId);
+  return res.status(204).send();
 }
 
 export async function listWorkers(req, res) {
@@ -127,11 +134,17 @@ export async function updateField(req, res) {
   });
 }
 
+export async function deleteField(req, res) {
+  await deleteFieldService(req.params.fieldId);
+  return res.status(204).send();
+}
+
 export default {
   listFarms,
   createFarm,
   getFarm,
   updateFarm,
+  deleteFarm,
   listWorkers,
   addWorker,
   updateWorker,
@@ -140,4 +153,5 @@ export default {
   createField,
   getField,
   updateField,
+  deleteField,
 };

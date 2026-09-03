@@ -137,6 +137,10 @@ export async function updateFarm(farmId, data) {
   });
 }
 
+export async function deleteFarm(farmId) {
+  return prisma.farm.delete({ where: { id: farmId } });
+}
+
 export async function getFarmAccess(farmId, userId) {
   return prisma.farmMember.findFirst({
     where: {
@@ -227,11 +231,16 @@ export async function updateField(fieldId, data) {
   });
 }
 
+export async function deleteField(fieldId) {
+  return prisma.field.delete({ where: { id: fieldId } });
+}
+
 export default {
   getFarmById,
   listUserFarms,
   createFarm,
   updateFarm,
+  deleteFarm,
   getFarmAccess,
   listFarmWorkers,
   findFarmMember,
@@ -241,4 +250,5 @@ export default {
   listFarmFields,
   createField,
   updateField,
+  deleteField,
 };

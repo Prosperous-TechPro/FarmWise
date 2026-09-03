@@ -390,6 +390,9 @@ function CommunityPost({ post, onLike, currentUserId, onEdit, onDelete, onSaveEd
   const author = post.author || {};
   const isAuthor = currentUserId === post.authorId;
   const isEditing = editingPostId === post.id;
+  const [comments, setComments] = useState([]); const [commentBody, setCommentBody] = useState(''); const [commentsOpen, setCommentsOpen] = useState(false); const [commentBusy, setCommentBusy] = useState(false);
+  const toggleComments = async () => { if (!commentsOpen) { try { const result = await apiClient.get(`/community/posts/${post.id}/comments`); setComments(result.data || []); } catch { /* keep the post usable if comments cannot load */ } } setCommentsOpen(!commentsOpen); };
+  const submitComment = async (event) => { event.preventDefault(); if (!commentBody.trim()) return; setCommentBusy(true); try { const result = await apiClient.post(`/community/posts/${post.id}/comments`, { body: commentBody.trim() }); setComments([...comments, result.data]); setCommentBody(''); setCommentsOpen(true); } finally { setCommentBusy(false); } };
 
   return (
     <article className="community-post">
@@ -435,8 +438,9 @@ function CommunityPost({ post, onLike, currentUserId, onEdit, onDelete, onSaveEd
       )}
       <div className="community-actions">
         <button className={post.viewerLiked ? 'text-button liked' : 'text-button'} onClick={() => onLike(post, post.viewerLiked)}>{post.viewerLiked ? 'Liked' : 'Like'} · {post._count?.likes || 0}</button>
-        <span>{post._count?.comments || 0} comments</span>
+        <button className="text-button" type="button" onClick={toggleComments}>{post._count?.comments || comments.length || 0} comments</button>
       </div>
+      {commentsOpen && <div className="comments-panel"><div className="comment-list">{comments.map((comment) => <div className="comment" key={comment.id}><strong>{comment.author?.firstName} {comment.author?.lastName}</strong><p>{comment.body}</p></div>)}{!comments.length && <small className="muted">No comments yet.</small>}</div><form className="comment-form" onSubmit={submitComment}><input value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder="Write a comment" maxLength="2000" required /><button className="primary-button" disabled={commentBusy}>{commentBusy ? 'Posting...' : 'Comment'}</button></form></div>}
     </article>
   );
 }

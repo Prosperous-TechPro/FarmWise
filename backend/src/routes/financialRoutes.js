@@ -21,18 +21,18 @@ const router = express.Router();
 
 router.use(authenticate, authorize);
 
-router.get('/farms/:farmId/expenses', requireFarmAccess, asyncHandler(listFarmExpenses));
+router.get('/farms/:farmId/expenses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmExpenses));
 router.post('/farms/:farmId/expenses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createExpense));
 
-router.get('/farms/:farmId/sales', requireFarmAccess, asyncHandler(listFarmSales));
+router.get('/farms/:farmId/sales', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmSales));
 router.post('/farms/:farmId/sales', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createSale));
 
-router.get('/farms/:farmId/losses', requireFarmAccess, asyncHandler(listFarmLosses));
+router.get('/farms/:farmId/losses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmLosses));
 router.post('/farms/:farmId/losses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createFinancialLoss));
 
-router.get('/farms/:farmId/budgets', requireFarmAccess, asyncHandler(listFarmBudgets));
+router.get('/farms/:farmId/budgets', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmBudgets));
 router.post('/farms/:farmId/budgets', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createBudget));
 
-router.get('/farms/:farmId/profitability', requireFarmAccess, asyncHandler(getFarmProfitability));
+router.get('/farms/:farmId/profitability', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(getFarmProfitability));
 
 export default router;

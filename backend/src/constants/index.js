@@ -12,6 +12,13 @@ export const USER_ROLES = {
   WORKER: 'WORKER',
 };
 
+// Roles assigned within an individual farm membership
+export const FARM_ROLES = {
+  OWNER: 'OWNER',
+  MANAGER: 'MANAGER',
+  WORKER: 'WORKER',
+};
+
 // Environment
 export const ENVIRONMENTS = {
   DEVELOPMENT: 'development',
@@ -44,6 +51,7 @@ export const ERROR_CODES = {
 
 export default {
   USER_ROLES,
+  FARM_ROLES,
   ENVIRONMENTS,
   HTTP_STATUS,
   ERROR_CODES,

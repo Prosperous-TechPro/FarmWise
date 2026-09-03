@@ -128,7 +128,6 @@ export function requireRole(roles) {
     }
 
     const userRoles = req.user.roles || [];
-    if (isSystemAdmin(req.user)) return next();
     const hasRole = requiredRoles.some((role) => userRoles.includes(role));
 
     if (!hasRole) {
@@ -214,7 +213,7 @@ export function requirePermission(permissions) {
  * Middleware to check if user is superadmin
  */
 export function requireSuperAdmin(req, res, next) {
-  return requireRole(['ADMIN', 'SUPERADMIN'])(req, res, next);
+  return requireRole(['SUPERADMIN'])(req, res, next);
 }
 
 /**

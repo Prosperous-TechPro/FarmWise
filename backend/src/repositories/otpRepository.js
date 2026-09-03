@@ -18,7 +18,8 @@ import prisma from '../lib/prisma.js';
 export async function createOtpVerification(otpData) {
   return prisma.otpVerification.create({
     data: {
-      userId: otpData.userId,
+      userId: otpData.userId || null,
+      pendingRegistrationId: otpData.pendingRegistrationId || null,
       purpose: otpData.purpose,
       channel: otpData.channel,
       codeHash: otpData.codeHash,
@@ -38,7 +39,10 @@ export async function createOtpVerification(otpData) {
 export async function findOtpById(otpId) {
   return prisma.otpVerification.findUnique({
     where: { id: otpId },
-    include: { user: { select: { id: true, email: true, phone: true } } },
+    include: {
+      user: { select: { id: true, email: true, phone: true } },
+      pendingRegistration: { select: { id: true, email: true, phone: true } },
+    },
   });
 }
 
@@ -79,6 +83,23 @@ export async function findOtpByUserPurposeChannel(userId, purpose, channel) {
       expiresAt: {
         gt: new Date(),
       },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function findOtpByPendingRegistrationPurposeChannel(
+  pendingRegistrationId,
+  purpose,
+  channel
+) {
+  return prisma.otpVerification.findFirst({
+    where: {
+      pendingRegistrationId,
+      purpose,
+      channel,
+      isUsed: false,
+      expiresAt: { gt: new Date() },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -135,6 +156,32 @@ export async function getUnexpiredOtpsForUser(userId, purpose = null) {
   });
 }
 
+export async function getUnexpiredOtpsForPendingRegistration(
+  pendingRegistrationId,
+  purpose = null
+) {
+  return prisma.otpVerification.findMany({
+    where: {
+      pendingRegistrationId,
+      isUsed: false,
+      expiresAt: { gt: new Date() },
+      ...(purpose && { purpose }),
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function getRecentOtpsForPendingRegistration(pendingRegistrationId, purpose, since) {
+  return prisma.otpVerification.findMany({
+    where: {
+      pendingRegistrationId,
+      purpose,
+      createdAt: { gte: since },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
 /**
  * Check if user has active OTP for purpose
  * @param {string} userId - User ID
@@ -150,6 +197,20 @@ export async function hasActiveOtp(userId, purpose) {
       expiresAt: {
         gt: new Date(),
       },
+    },
+    select: { id: true },
+  });
+
+  return !!otp;
+}
+
+export async function hasActivePendingRegistrationOtp(pendingRegistrationId, purpose) {
+  const otp = await prisma.otpVerification.findFirst({
+    where: {
+      pendingRegistrationId,
+      purpose,
+      isUsed: false,
+      expiresAt: { gt: new Date() },
     },
     select: { id: true },
   });
@@ -210,10 +271,13 @@ export default {
   findOtpById,
   findLatestOtpByUserAndPurpose,
   findOtpByUserPurposeChannel,
+  findOtpByPendingRegistrationPurposeChannel,
   incrementOtpAttempts,
   markOtpAsUsed,
   getUnexpiredOtpsForUser,
+  getUnexpiredOtpsForPendingRegistration,
   hasActiveOtp,
+  hasActivePendingRegistrationOtp,
   cleanupExpiredOtps,
   getOtpUsageStats,
 };

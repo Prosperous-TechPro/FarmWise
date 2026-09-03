@@ -13,6 +13,7 @@ import {
   listLossesByFarm,
   listSalesByFarm,
 } from '../repositories/financialRepository.js';
+import { getProjectById } from '../repositories/projectRepository.js';
 import { getFarmById } from '../repositories/farmRepository.js';
 import {
   validateCreateBudget,
@@ -48,6 +49,15 @@ export async function createExpenseService(farmId, userId, input) {
     throw error;
   }
 
+  if (validation.normalizedData.projectId) {
+    const project = await getProjectById(validation.normalizedData.projectId);
+    if (!project || project.farmId !== farmId) {
+      const error = new Error('Project not found for this farm');
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   return createExpense({
     farmId,
     recordedBy: userId,
@@ -60,6 +70,7 @@ export async function createExpenseService(farmId, userId, input) {
     status: validation.normalizedData.status,
     expenseDate: validation.normalizedData.expenseDate,
     expenseTime: validation.normalizedData.expenseTime || null,
+    projectId: validation.normalizedData.projectId || null,
     notes: input.notes || null,
   });
 }

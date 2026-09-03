@@ -6,6 +6,12 @@ import './App.css';
 
 const TOKEN_KEY = 'farmwise.accessToken';
 const WORKSPACE_CACHE_KEY = 'farmwise.workspace';
+const PENDING_REGISTRATION_KEY = 'farmwise.pendingRegistration';
+
+function navigate(path) {
+  window.history.pushState({}, '', path);
+  window.dispatchEvent(new PopStateEvent('popstate'));
+}
 
 function getStoredUser() {
   try { return JSON.parse(localStorage.getItem('farmwise.user') || 'null'); } catch { return null; }
@@ -40,6 +46,13 @@ function AppContent() {
   const workspaceRequestRef = useRef(0);
   const isSystemAdmin = hasSystemAdminRole(user);
   const isSuperAdmin = hasSuperAdminRole(user);
+  const [pathname, setPathname] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const onPopState = () => setPathname(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   const signOut = async () => {
     try { if (token) await apiClient.post('/auth/logout', {}); } catch { /* local sign-out still completes */ }
@@ -106,12 +119,16 @@ function AppContent() {
     }
   }, [token, view]);
 
-  if (!token) return <Login onLogin={(session) => {
+  if (!token) {
+    if (pathname === '/register') return <Register onNavigate={navigate} />;
+    if (pathname === '/verify-otp') return <VerifyOtp onNavigate={navigate} />;
+    return <Login onLogin={(session) => {
     localStorage.setItem(TOKEN_KEY, session.accessToken);
     localStorage.setItem('farmwise.refreshToken', session.refreshToken || '');
     localStorage.setItem('farmwise.user', JSON.stringify(session.user));
     apiClient.setAuthToken(session.accessToken); setUser(session.user); setToken(session.accessToken);
-  }} />;
+    }} onRegister={() => navigate('/register')} />;
+  }
 
   const firstName = user?.firstName || user?.first_name || 'Farmer';
   return (
@@ -119,6 +136,7 @@ function AppContent() {
         {view === 'dashboard' && <Dashboard overview={overview} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />}
         {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { setFarms([...farms, farm]); setNotice('Farm created successfully.'); }} onUpdated={(farm) => { setFarms(farms.map((item) => item.id === farm.id ? farm : item)); setNotice('Farm updated successfully.'); }} onDeleted={(farmId) => { setFarms(farms.filter((item) => item.id !== farmId)); setNotice('Farm deleted successfully.'); }} />}
         {view === 'records' && <Records farms={farms} />}
+        {view === 'projects' && <Projects farms={farms} />}
         {view === 'community' && <CommunityFeed user={user} />}
         {view === 'notifications' && <Notifications />}
         {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice('Profile updated successfully.'); }} />}
@@ -131,26 +149,50 @@ function AppContent() {
   );
 }
 
-function Login({ onLogin }) {
-  const [mode, setMode] = useState('login');
+function Login({ onLogin, onRegister }) {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); try {
     const result = await apiClient.post('/auth/login', { email, password }); onLogin(result.data);
   } catch (err) { setError(err.message || 'Sign in failed. Check your details.'); } finally { setBusy(false); } };
-  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div>{mode === 'login' ? <form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot">New farm owner? <button type="button" className="text-button" onClick={() => { setMode('register'); setError(''); }}>Create an account</button></p></form> : <Register onBack={() => { setMode('login'); setError(''); }} />}</div>;
+  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div><form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot">New farm owner? <button type="button" className="text-button" onClick={onRegister}>Create an account</button></p></form></div>;
 }
 
-function Register({ onBack }) {
+function maskDestination(destination, channel) {
+  if (channel === 'SMS') return destination ? `${destination.slice(0, 4)}••••${destination.slice(-2)}` : '';
+  const [name, domain] = String(destination || '').split('@');
+  return domain ? `${name.slice(0, 2)}•••@${domain}` : '';
+}
+
+function savePendingRegistration(data) {
+  const pending = { pendingRegistrationId: data.pendingRegistrationId, channel: data.verificationMethod, displayDestination: maskDestination(data.verificationMethod === 'SMS' ? data.phone : data.email, data.verificationMethod), expiresAt: Date.now() + (data.otpExpiresIn || 600) * 1000 };
+  sessionStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify(pending));
+}
+
+function readPendingRegistration() {
+  try {
+    const pending = JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY) || 'null');
+    return pending && pending.expiresAt > Date.now() ? pending : null;
+  } catch { return null; }
+}
+
+function Register({ onNavigate }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '', verificationMethod: 'EMAIL' });
-  const [pending, setPending] = useState(null); const [code, setCode] = useState('');
   const [error, setError] = useState(''); const [success, setSuccess] = useState(''); const [busy, setBusy] = useState(false);
   const update = (field) => (event) => setForm({ ...form, [field]: event.target.value });
-  const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); setSuccess(''); try { const result = await apiClient.post('/auth/register', form); setPending(result.data); setSuccess(result.message || 'Verification code sent.'); } catch (err) { if (err.data?.data?.userId) setPending(err.data.data); setError(err.message || 'Registration failed.'); } finally { setBusy(false); } };
-  const verify = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { const result = await apiClient.post('/auth/verify-otp', { userId: pending.userId, code, channel: pending.verificationMethod || pending.channel }); setSuccess(result.message || 'Account verified. You can now sign in.'); setPending(null); setCode(''); } catch (err) { setError(err.message || 'Verification failed.'); } finally { setBusy(false); } };
-  const resend = async () => { setBusy(true); setError(''); try { const result = await apiClient.post('/auth/resend-otp', { userId: pending.userId, channel: pending.verificationMethod || pending.channel }); setSuccess(result.message || 'A new verification code was sent.'); } catch (err) { setError(err.message || 'Could not resend the verification code.'); } finally { setBusy(false); } };
-  if (pending) return <form className="auth-form register-form" onSubmit={verify}><button type="button" className="back-button" onClick={onBack}>← Back to sign in</button><p className="eyebrow">VERIFY YOUR ACCOUNT</p><h2>Enter your verification code</h2><p className="muted">We sent a code to {pending.email || pending.destination}. Your account will be ready after verification.</p>{error && <div className="notice error">{error}</div>}{success && <div className="notice success">{success}</div>}<label>One-time password<input inputMode="numeric" pattern="[0-9]{6}" maxLength="6" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} required autoComplete="one-time-code" /></label><button className="primary-button" disabled={busy}>{busy ? 'Verifying...' : 'Verify account'} <span>→</span></button><button type="button" className="text-button" onClick={resend} disabled={busy}>Request a new OTP</button></form>;
-  return <form className="auth-form register-form" onSubmit={submit}><button type="button" className="back-button" onClick={onBack}>← Back to sign in</button><p className="eyebrow">NEW FARM OWNER</p><h2>Create your account</h2><p className="muted">A verification code is required before your account is activated.</p>{error && <div className="notice error">{error}</div>}{success && <div className="notice success">{success}</div>}<div className="form-row"><label>First name<input value={form.firstName} onChange={update('firstName')} required autoComplete="given-name" /></label><label>Last name<input value={form.lastName} onChange={update('lastName')} required autoComplete="family-name" /></label></div><label>Email address<input type="email" value={form.email} onChange={update('email')} required autoComplete="email" /></label><label>Phone number<input type="tel" value={form.phone} onChange={update('phone')} required autoComplete="tel" placeholder="+233..." /></label><div className="form-row"><label>Password<PasswordInput value={form.password} onChange={update('password')} autoComplete="new-password" /></label><label>Confirm password<PasswordInput value={form.confirmPassword} onChange={update('confirmPassword')} autoComplete="new-password" /></label></div><label>Verification method<select value={form.verificationMethod} onChange={update('verificationMethod')}><option value="EMAIL">Email code</option><option value="SMS">SMS code</option></select></label><button className="primary-button" disabled={busy}>{busy ? 'Creating account...' : 'Send verification code'} <span>→</span></button></form>;
+  const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); setSuccess(''); try { const result = await apiClient.post('/auth/register', form); savePendingRegistration({ ...result.data, phone: form.phone }); onNavigate('/verify-otp'); } catch (err) { sessionStorage.removeItem(PENDING_REGISTRATION_KEY); setError(err.message || 'Registration failed. No user account has been created yet.'); } finally { setBusy(false); } };
+  return <form className="auth-form register-form" onSubmit={submit}><button type="button" className="back-button" onClick={() => { sessionStorage.removeItem(PENDING_REGISTRATION_KEY); onNavigate('/'); }}>← Back to sign in</button><p className="eyebrow">VERIFY BEFORE YOU JOIN</p><h2>Start your registration</h2><p className="muted">We will send a code first. Your account is created only after verification.</p>{error && <div className="notice error">{error}</div>}{success && <div className="notice success">{success}</div>}<div className="form-row"><label>First name<input value={form.firstName} onChange={update('firstName')} required autoComplete="given-name" /></label><label>Last name<input value={form.lastName} onChange={update('lastName')} required autoComplete="family-name" /></label></div><label>Email address<input type="email" value={form.email} onChange={update('email')} required autoComplete="email" /></label><label>Phone number<input type="tel" value={form.phone} onChange={update('phone')} required autoComplete="tel" placeholder="+233..." /></label><div className="form-row"><label>Password<PasswordInput value={form.password} onChange={update('password')} autoComplete="new-password" /></label><label>Confirm password<PasswordInput value={form.confirmPassword} onChange={update('confirmPassword')} autoComplete="new-password" /></label></div><label>Verification method<select value={form.verificationMethod} onChange={update('verificationMethod')}><option value="EMAIL">Email code</option><option value="SMS">SMS code</option></select></label><button className="primary-button" disabled={busy}>{busy ? 'Sending code...' : 'Send verification code'} <span>→</span></button></form>;
+}
+
+function VerifyOtp({ onNavigate }) {
+  const [pending] = useState(readPendingRegistration);
+  const [code, setCode] = useState(''); const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const [cooldown, setCooldown] = useState(0);
+  useEffect(() => { if (!pending) onNavigate('/register'); }, [pending, onNavigate]);
+  useEffect(() => { if (!cooldown) return undefined; const timer = setInterval(() => setCooldown((value) => Math.max(0, value - 1)), 1000); return () => clearInterval(timer); }, [cooldown]);
+  if (!pending) return null;
+  const verify = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { await apiClient.post('/auth/verify-otp', { pendingRegistrationId: pending.pendingRegistrationId, code, channel: pending.channel }); sessionStorage.removeItem(PENDING_REGISTRATION_KEY); onNavigate('/'); } catch (err) { setError(err.message || 'Verification failed.'); } finally { setBusy(false); } };
+  const resend = async () => { setBusy(true); setError(''); try { const result = await apiClient.post('/auth/resend-otp', { pendingRegistrationId: pending.pendingRegistrationId, channel: pending.channel }); setCooldown(result.retryAfter || result.data?.retryAfter || 60); } catch (err) { setCooldown(err.data?.retryAfter || 0); setError(err.message || 'Could not resend the verification code.'); } finally { setBusy(false); } };
+  return <form className="auth-form register-form" onSubmit={verify}><button type="button" className="back-button" onClick={() => { sessionStorage.removeItem(PENDING_REGISTRATION_KEY); onNavigate('/register'); }}>← Change registration details</button><p className="eyebrow">VERIFY YOUR ACCOUNT</p><h2>Enter your verification code</h2><p className="muted">We sent a {pending.channel === 'SMS' ? 'text message' : 'email'} to {pending.displayDestination}. Your account will be created after verification.</p>{error && <div className="notice error">{error}</div>}<label>One-time password<input inputMode="numeric" pattern="[0-9]{6}" maxLength="6" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} required autoComplete="one-time-code" /></label><button className="primary-button" disabled={busy}>{busy ? 'Verifying...' : 'Verify account'} <span>→</span></button><button type="button" className="text-button" onClick={resend} disabled={busy || cooldown > 0}>{cooldown ? `Request a new OTP in ${cooldown}s` : 'Request a new OTP'}</button></form>;
 }
 
 function PasswordInput({ value, onChange, autoComplete }) {
@@ -456,6 +498,17 @@ function Notifications() {
   useEffect(() => { apiClient.get('/notifications').then((result) => setItems(result.data || [])).catch((err) => setError(err.message || 'Unable to load notifications.')).finally(() => setLoading(false)); }, []);
   const markRead = async (item) => { if (item.status !== 'UNREAD') return; try { await apiClient.patch(`/notifications/${item.id}/read`, {}); setItems(items.map((entry) => entry.id === item.id ? { ...entry, status: 'READ' } : entry)); } catch (err) { setError(err.message || 'Unable to mark notification as read.'); } };
   return <section><div className="section-heading"><div><p className="eyebrow">INBOX</p><h2>Notifications</h2><p className="muted">Updates and activity connected to your FarmWise account.</p></div></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading notifications" /> : <div className="notification-list">{items.map((item) => <button className={`notification-item ${item.status === 'UNREAD' ? 'unread' : ''}`} key={item.id} onClick={() => markRead(item)}><span className="notification-item-icon">&#128276;</span><span><strong>{item.title}</strong><small>{item.message}</small><em>{new Date(item.createdAt).toLocaleString()}</em></span></button>)}{!items.length && <div className="panel empty-wide"><h3>No notifications</h3><p className="muted">You are all caught up.</p></div>}</div>}</section>;
+}
+
+function Projects({ farms }) {
+  const [farmId, setFarmId] = useState(farms[0]?.id || ''); const [projects, setProjects] = useState([]); const [form, setForm] = useState({ name: '', description: '', startDate: '', endDate: '', currency: 'GHS' }); const [lineForm, setLineForm] = useState({ name: '', plannedAmount: '' }); const [open, setOpen] = useState(false); const [lineProject, setLineProject] = useState(null); const [loading, setLoading] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const load = async () => { if (!farmId) return; setLoading(true); setError(''); try { const result = await apiClient.get(`/farms/${farmId}/projects`); setProjects(result.data || []); } catch (err) { setError(err.message || 'Unable to load projects.'); } finally { setLoading(false); } };
+  useEffect(() => { load(); }, [farmId]);
+  const update = (field) => (event) => setForm({ ...form, [field]: event.target.value });
+  const create = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { const result = await apiClient.post(`/farms/${farmId}/projects`, form); setProjects([result.data, ...projects]); setForm({ name: '', description: '', startDate: '', endDate: '', currency: 'GHS' }); setOpen(false); } catch (err) { setError(err.message || 'Unable to create project.'); } finally { setBusy(false); } };
+  const addLine = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { await apiClient.post(`/farms/${farmId}/projects/${lineProject.id}/budget-lines`, lineForm); setLineForm({ name: '', plannedAmount: '' }); setLineProject(null); await load(); } catch (err) { setError(err.message || 'Unable to add budget line.'); } finally { setBusy(false); } };
+  const remove = async (project) => { if (!window.confirm(`Delete ${project.name}?`)) return; setBusy(true); try { await apiClient.delete(`/farms/${farmId}/projects/${project.id}`); setProjects(projects.filter((item) => item.id !== project.id)); } catch (err) { setError(err.message || 'Unable to delete project.'); } finally { setBusy(false); } };
+  return <section><div className="section-heading"><div><p className="eyebrow">FARM PLANNING</p><h2>Projects</h2><p className="muted">Plan work, then compare the plan with recorded expenditure.</p></div><button className="primary-button" onClick={() => setOpen(!open)} disabled={!farms.length}>+ New project</button></div>{farms.length > 0 && <label>Farm<select value={farmId} onChange={(event) => setFarmId(event.target.value)}>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select></label>}{error && <div className="notice error">{error}</div>}{open && <form className="create-form" onSubmit={create}><label>Project name<input value={form.name} onChange={update('name')} maxLength="255" required /></label><label>Description<textarea value={form.description} onChange={update('description')} rows="3" /></label><div className="form-row"><label>Start date<input type="date" value={form.startDate} onChange={update('startDate')} required /></label><label>End date<input type="date" value={form.endDate} onChange={update('endDate')} /></label></div><label>Currency<select value={form.currency} onChange={update('currency')}><option value="GHS">GHS</option><option value="USD">USD</option><option value="EUR">EUR</option></select></label><button className="primary-button" disabled={busy}>{busy ? 'Creating...' : 'Create project'}</button></form>}{!farms.length ? <div className="panel empty-wide"><h3>Create a farm first</h3></div> : loading ? <div className="loading-line" aria-label="Loading projects" /> : <div className="farm-grid">{projects.map((project) => <article className="farm-card" key={project.id}><div className="farm-card-top"><span className="farm-avatar large">{(project.name || 'P')[0]}</span><span className="live-badge">{project.budgetStatus}</span></div><h3>{project.name}</h3><p>{project.status} · {new Date(project.startDate).toLocaleDateString()}</p><div style={{display:'grid', gap:'5px', margin:'14px 0'}}><small>Planned: {project.currency} {Number(project.plannedBudget).toLocaleString()}</small><small>Actual: {project.currency} {Number(project.actualExpenditure).toLocaleString()}</small><small>Remaining: {project.currency} {Number(project.remainingBudget).toLocaleString()} · {project.utilizationPercentage}% used</small></div><div className="farm-card-foot"><button className="text-button" type="button" onClick={() => setLineProject(project)}>Add budget line</button><button className="text-button" type="button" onClick={() => remove(project)} disabled={busy}>Delete</button></div>{project.budgetLines?.length > 0 && <small>{project.budgetLines.map((line) => `${line.name}: ${project.currency} ${Number(line.plannedAmount).toLocaleString()}`).join(' · ')}</small>}</article>)}{!projects.length && <div className="panel empty-wide"><h3>No projects yet</h3><p className="muted">Create a project to start tracking planned and actual costs.</p></div>}</div>}{lineProject && <form className="create-form" onSubmit={addLine}><h3>Add budget line to {lineProject.name}</h3><label>Line name<input value={lineForm.name} onChange={(event) => setLineForm({ ...lineForm, name: event.target.value })} required /></label><label>Planned amount<input type="number" min="0.01" step="0.01" value={lineForm.plannedAmount} onChange={(event) => setLineForm({ ...lineForm, plannedAmount: event.target.value })} required /></label><button className="primary-button" disabled={busy}>{busy ? 'Saving...' : 'Add line'}</button><button className="text-button" type="button" onClick={() => setLineProject(null)}>Cancel</button></form>}</section>;
 }
 
 function Account({ user, onUpdated }) {

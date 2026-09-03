@@ -124,6 +124,12 @@ export function validateCreateExpense(data = {}) {
     }
   }
 
+  if (data.projectId !== undefined && data.projectId !== null && (typeof data.projectId !== 'string' || !data.projectId.trim())) {
+    errors.projectId = 'Project ID must be a non-empty string';
+  } else if (data.projectId) {
+    normalizedData.projectId = data.projectId.trim();
+  }
+
   return { isValid: Object.keys(errors).length === 0, errors, normalizedData };
 }
 

@@ -10,7 +10,6 @@ import {
   verifyRefreshToken,
 } from '../utils/jwt.js';
 import {
-  createUser,
   findUserByEmail,
   findUserByPhone,
   findUserById,
@@ -18,8 +17,6 @@ import {
   updatePasswordHash,
   emailExists,
   phoneExists,
-  assignRoleToUser,
-  ensureRole,
 } from '../repositories/userRepository.js';
 import {
   createAuthSession,
@@ -30,6 +27,13 @@ import {
   isSessionValid,
 } from '../repositories/authSessionRepository.js';
 import logger from '../utils/logger.js';
+import prisma from '../lib/prisma.js';
+import {
+  createPendingRegistration as createPendingRegistrationRecord,
+  findPendingRegistrationById,
+  findPendingRegistrationByEmail,
+  findPendingRegistrationByPhone,
+} from '../repositories/pendingRegistrationRepository.js';
 
 /**
  * Register a new user
@@ -43,45 +47,43 @@ import logger from '../utils/logger.js';
  * @returns {Promise<Object>} { success: boolean, userId: string, verificationMethod: string }
  */
 export async function registerUser(options) {
+  return createPendingRegistration(options);
+}
+
+export async function createPendingRegistration(options) {
   const { email, phone, firstName, lastName, password, verificationMethod } = options;
 
   try {
-    // Check if email already exists
-    if (await emailExists(email)) {
+    if (await emailExists(email) || await findPendingRegistrationByEmail(email)) {
       throw new Error('Email address is already registered');
     }
 
-    // Check if phone already exists
-    if (await phoneExists(phone)) {
+    if (await phoneExists(phone) || await findPendingRegistrationByPhone(phone)) {
       throw new Error('Phone number is already registered');
     }
 
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Create user (account not yet verified)
-    const user = await createUser({
+    const pendingRegistration = await createPendingRegistrationRecord({
       email,
       phone,
       firstName,
       lastName,
       passwordHash,
-      emailVerified: false,
-      phoneVerified: false,
+      verificationMethod,
     });
 
-    const ownerRole = await ensureRole('FARM_OWNER', 'Farm owner access');
-    await assignRoleToUser(user.id, ownerRole.id);
-    logger.info(`User registered successfully`, {
-      userId: user.id,
-      email: user.email,
+    logger.info(`Pending registration created`, {
+      pendingRegistrationId: pendingRegistration.id,
+      email: pendingRegistration.email,
       verificationMethod,
     });
 
     return {
       success: true,
-      userId: user.id,
-      email: user.email,
+      pendingRegistrationId: pendingRegistration.id,
+      email: pendingRegistration.email,
       verificationMethod,
     };
   } catch (error) {
@@ -93,6 +95,47 @@ export async function registerUser(options) {
 
     throw error;
   }
+}
+
+export async function completePendingRegistration(pendingRegistrationId) {
+  const pendingRegistration = await findPendingRegistrationById(pendingRegistrationId);
+
+  if (!pendingRegistration) {
+    throw new Error('Pending registration not found');
+  }
+
+  return prisma.$transaction(async (transaction) => {
+    const user = await transaction.user.create({
+      data: {
+        email: pendingRegistration.email,
+        phone: pendingRegistration.phone,
+        firstName: pendingRegistration.firstName,
+        lastName: pendingRegistration.lastName,
+        passwordHash: pendingRegistration.passwordHash,
+        emailVerified: pendingRegistration.verificationMethod === 'EMAIL',
+        emailVerifiedAt: pendingRegistration.verificationMethod === 'EMAIL' ? new Date() : null,
+        phoneVerified: pendingRegistration.verificationMethod === 'SMS',
+        phoneVerifiedAt: pendingRegistration.verificationMethod === 'SMS' ? new Date() : null,
+        status: 'ACTIVE',
+      },
+    });
+
+    const ownerRole = await transaction.role.upsert({
+      where: { name: 'FARM_OWNER' },
+      update: {},
+      create: { name: 'FARM_OWNER', description: 'Farm owner access' },
+    });
+
+    await transaction.userRole.create({
+      data: { userId: user.id, roleId: ownerRole.id },
+    });
+
+    await transaction.pendingRegistration.delete({
+      where: { id: pendingRegistrationId },
+    });
+
+    return user;
+  });
 }
 
 /**
@@ -206,6 +249,10 @@ export async function login(options) {
       throw new Error('Invalid credentials');
     }
 
+    if (user.status !== 'ACTIVE' || (!user.emailVerified && !user.phoneVerified)) {
+      throw new Error('Your account must be active and verified before logging in');
+    }
+
     // Check if account is suspended
     if (user.status === 'SUSPENDED') {
       throw new Error('Your account has been suspended. Please contact support.');
@@ -216,11 +263,6 @@ export async function login(options) {
 
     if (!isPasswordValid) {
       throw new Error('Invalid credentials');
-    }
-
-    // Check if email or phone is verified (at least one required)
-    if (!user.emailVerified && !user.phoneVerified) {
-      throw new Error('Please verify your email or phone before logging in');
     }
 
     // Generate tokens
@@ -520,6 +562,8 @@ export async function resetPassword(options) {
 
 export default {
   registerUser,
+  createPendingRegistration,
+  completePendingRegistration,
   verifyEmail,
   verifyPhone,
   login,

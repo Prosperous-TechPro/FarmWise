@@ -7,11 +7,15 @@ import {
   createOtpVerification,
   findLatestOtpByUserAndPurpose,
   findOtpByUserPurposeChannel,
+  findOtpByPendingRegistrationPurposeChannel,
   findOtpById,
   incrementOtpAttempts,
   markOtpAsUsed,
   getUnexpiredOtpsForUser,
+  getUnexpiredOtpsForPendingRegistration,
+  getRecentOtpsForPendingRegistration,
   hasActiveOtp,
+  hasActivePendingRegistrationOtp,
 } from '../repositories/otpRepository.js';
 import { hashValue, generateOtp } from '../utils/crypto.js';
 import logger from '../utils/logger.js';
@@ -20,6 +24,7 @@ import logger from '../utils/logger.js';
  * Generate and send OTP
  * @param {Object} options - Options
  * @param {string} options.userId - User ID
+ * @param {string} options.pendingRegistrationId - Pending registration ID
  * @param {string} options.purpose - OTP purpose (enum)
  * @param {string} options.channel - Delivery channel (EMAIL or SMS)
  * @param {string} options.destination - Email or phone number
@@ -32,6 +37,7 @@ import logger from '../utils/logger.js';
 export async function generateAndSendOtp(options) {
   const {
     userId,
+    pendingRegistrationId,
     purpose,
     channel,
     destination,
@@ -43,12 +49,15 @@ export async function generateAndSendOtp(options) {
 
   try {
     // Validate required parameters
-    if (!userId || !purpose || !channel || !destination) {
+    if ((!userId && !pendingRegistrationId) || (userId && pendingRegistrationId) || !purpose || !channel || !destination) {
       throw new Error('Missing required parameters for OTP generation');
     }
 
     // Check if user already has active OTP (prevent spam)
-    if (await hasActiveOtp(userId, purpose)) {
+    const hasActive = pendingRegistrationId
+      ? await hasActivePendingRegistrationOtp(pendingRegistrationId, purpose)
+      : await hasActiveOtp(userId, purpose);
+    if (hasActive) {
       throw new Error('An OTP has already been sent. Please wait before requesting another.');
     }
 
@@ -63,6 +72,7 @@ export async function generateAndSendOtp(options) {
     // Create OTP verification record
     const otpRecord = await createOtpVerification({
       userId,
+      pendingRegistrationId,
       purpose,
       channel,
       codeHash: otpHash,
@@ -92,10 +102,10 @@ export async function generateAndSendOtp(options) {
     }
 
     if (!sendResult.success) {
-      // Mark OTP as used to prevent further attempts
-      // (In production, might want to keep it for retry)
-      logger.error(`OTP delivery failed for user`, {
+      await markOtpAsUsed(otpRecord.id);
+      logger.error(`OTP delivery failed`, {
         userId,
+        pendingRegistrationId,
         purpose,
         channel,
         destination,
@@ -106,6 +116,7 @@ export async function generateAndSendOtp(options) {
 
     logger.info(`OTP generated and sent`, {
       userId,
+      pendingRegistrationId,
       purpose,
       channel,
       otpId: otpRecord.id,
@@ -138,15 +149,17 @@ export async function generateAndSendOtp(options) {
  * @returns {Promise<Object>} { success: boolean, message: string }
  */
 export async function verifyOtp(options) {
-  const { userId, purpose, channel, code } = options;
+  const { userId, pendingRegistrationId, purpose, channel, code } = options;
 
   try {
-    if (!userId || !purpose || !channel || !code) {
+    if ((!userId && !pendingRegistrationId) || (userId && pendingRegistrationId) || !purpose || !channel || !code) {
       throw new Error('Missing required parameters for OTP verification');
     }
 
     // Find the latest OTP
-    const otpRecord = await findOtpByUserPurposeChannel(userId, purpose, channel);
+    const otpRecord = pendingRegistrationId
+      ? await findOtpByPendingRegistrationPurposeChannel(pendingRegistrationId, purpose, channel)
+      : await findOtpByUserPurposeChannel(userId, purpose, channel);
 
     if (!otpRecord) {
       throw new Error('No OTP found. Please request a new one.');
@@ -187,6 +200,7 @@ export async function verifyOtp(options) {
 
     logger.info(`OTP verified successfully`, {
       userId,
+      pendingRegistrationId,
       purpose,
       channel,
       otpId: otpRecord.id,
@@ -220,24 +234,53 @@ export async function verifyOtp(options) {
  * @returns {Promise<Object>} { success: boolean, otpId: string, expiresIn: number }
  */
 export async function resendOtp(options) {
-  const { userId, purpose, channel, destination, emailProvider, smsProvider } = options;
+  const { userId, pendingRegistrationId, purpose, channel, destination, emailProvider, smsProvider } = options;
 
   try {
-    // Get all pending OTPs for this user and purpose
-    const pendingOtps = await getUnexpiredOtpsForUser(userId, purpose);
+    if (pendingRegistrationId) {
+      const cooldownSeconds = Number.parseInt(process.env.OTP_PENDING_RESEND_COOLDOWN_SECONDS || '60', 10);
+      const windowSeconds = Number.parseInt(process.env.OTP_PENDING_RESEND_WINDOW_SECONDS || '3600', 10);
+      const maxResends = Number.parseInt(process.env.OTP_PENDING_RESEND_MAX_ATTEMPTS || '5', 10);
+      const now = Date.now();
+      const windowStart = new Date(now - windowSeconds * 1000);
+      const recentOtps = await getRecentOtpsForPendingRegistration(pendingRegistrationId, purpose, windowStart);
+      const latestOtp = recentOtps[0];
+      const cooldownRemaining = latestOtp
+        ? Math.ceil((latestOtp.createdAt.getTime() + cooldownSeconds * 1000 - now) / 1000)
+        : 0;
+      if (cooldownRemaining > 0) {
+        const error = new Error('Please wait before requesting another verification code.');
+        error.statusCode = 429;
+        error.retryAfter = cooldownRemaining;
+        throw error;
+      }
+      if (recentOtps.length >= maxResends) {
+        const retryAfter = Math.max(1, Math.ceil((recentOtps[recentOtps.length - 1].createdAt.getTime() + windowSeconds * 1000 - now) / 1000));
+        const error = new Error('Too many verification code requests. Please try again later.');
+        error.statusCode = 429;
+        error.retryAfter = retryAfter;
+        throw error;
+      }
 
-    // If there are existing OTPs for other channels, we might want to allow resend
-    // But for the same channel, enforce cooldown or prevent spam
+      const activeOtps = await getUnexpiredOtpsForPendingRegistration(pendingRegistrationId, purpose);
+      await Promise.all(activeOtps.map((otp) => markOtpAsUsed(otp.id)));
+    }
 
-    // Simply generate new OTP (the old one will still be valid until expiry)
-    return await generateAndSendOtp({
+    const result = await generateAndSendOtp({
       userId,
+      pendingRegistrationId,
       purpose,
       channel,
       destination,
       emailProvider,
       smsProvider,
     });
+    return {
+      ...result,
+      cooldownSeconds: pendingRegistrationId
+        ? Number.parseInt(process.env.OTP_PENDING_RESEND_COOLDOWN_SECONDS || '60', 10)
+        : undefined,
+    };
   } catch (error) {
     logger.error(`OTP resend failed`, {
       userId,

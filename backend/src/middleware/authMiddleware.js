@@ -60,10 +60,10 @@ export async function authenticate(req, res, next) {
     }
 
     // Check if user is active
-    if (user.status !== 'ACTIVE') {
+    if (user.status !== 'ACTIVE' || (!user.emailVerified && !user.phoneVerified)) {
       return res.status(403).json({
         success: false,
-        message: 'User account is not active',
+        message: 'User account is not active and verified',
         errors: { user: `Account status: ${user.status}` },
       });
     }

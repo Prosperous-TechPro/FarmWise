@@ -24,6 +24,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import adminDashboardRoutes from './routes/adminDashboardRoutes.js';
 import communityRoutes from './routes/communityRoutes.js';
+import projectRoutes from './routes/projectRoutes.js';
 import { createEmailProvider } from './utils/emailProvider.js';
 import { createSmsProvider } from './utils/smsProvider.js';
 
@@ -133,6 +134,7 @@ export function createApp() {
 
   // Financial management routes
   app.use('/api/v1', financialRoutes);
+  app.use('/api/v1', projectRoutes);
 
   // Inventory management routes
   app.use('/api/v1', inventoryRoutes);

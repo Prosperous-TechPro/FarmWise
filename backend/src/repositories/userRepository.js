@@ -89,7 +89,7 @@ export async function createUser(userData) {
       passwordHash: userData.passwordHash,
       emailVerified: userData.emailVerified || false,
       phoneVerified: userData.phoneVerified || false,
-      status: 'ACTIVE',
+      status: userData.status || 'ACTIVE',
     },
     include: {
       userRoles: { include: { role: true } },

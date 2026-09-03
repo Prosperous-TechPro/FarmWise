@@ -180,6 +180,13 @@ enum TaskPriority {
   URGENT
 }
 
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
 /// Area unit types
 enum AreaUnit {
   ACRE
@@ -464,13 +471,13 @@ enum DomainEventStatus {
 
 /// User entity - represents an individual user
 model User {
-  id           String  @id @default(cuid())
-  email        String  @unique @db.VarChar(255)
-  phone        String? @unique @db.VarChar(20)
-  firstName    String  @db.VarChar(100)
-  lastName     String  @db.VarChar(100)
+  id                String  @id @default(cuid())
+  email             String  @unique @db.VarChar(255)
+  phone             String? @unique @db.VarChar(20)
+  firstName         String  @db.VarChar(100)
+  lastName          String  @db.VarChar(100)
   profilePictureUrl String? @db.Text
-  passwordHash String  @db.VarChar(255)
+  passwordHash      String  @db.VarChar(255)
 
   /// Account status
   status UserStatus @default(PENDING_VERIFICATION)
@@ -488,38 +495,56 @@ model User {
   lastLoginAt DateTime?
 
   /// Relations
-  userRoles               UserRole[]
-  ownedFarms              Farm[]
-  farmMembers             FarmMember[]
-  createdActivities       FarmActivity[]            @relation("FarmActivityCreator")
-  assignedActivities      FarmActivity[]            @relation("FarmActivityAssignee")
-  activityTaskAssignments FarmActivityTask[]        @relation("FarmActivityTaskAssignee")
-  activityObservations    FarmActivityObservation[] @relation("FarmActivityObservationAuthor")
-  notifications           Notification[]
-  notificationPreferences NotificationPreference[]
-  notificationDevices     NotificationDevice[]
-  notificationDeliveries  NotificationDelivery[]
-  acknowledgedAlerts      FarmAlert[]               @relation("AlertAcknowledger")
-  resolvedAlerts          FarmAlert[]               @relation("AlertResolver")
-  expenses                Expense[]
-  sales                   Sale[]
-  lossRecords             FinancialLoss[]
-  budgets                 Budget[]
-  budgetItems             BudgetItem[]
-  auditLogs               AuditLog[]
-  productionRecords       ProductionRecord[]
-  harvests                Harvest[]
-  otpVerifications        OtpVerification[]
-  authSessions            AuthSession[]
-  communityPosts          CommunityPost[]
-  communityComments       CommunityComment[]
-  communityLikes          CommunityLike[]
-  communityReports        CommunityReport[]
+  userRoles                  UserRole[]
+  ownedFarms                 Farm[]
+  farmMembers                FarmMember[]
+  createdProjects            Project[]                   @relation("ProjectCreator")
+  createdActivities          FarmActivity[]              @relation("FarmActivityCreator")
+  assignedActivities         FarmActivity[]              @relation("FarmActivityAssignee")
+  activityTaskAssignments    FarmActivityTask[]          @relation("FarmActivityTaskAssignee")
+  activityObservations       FarmActivityObservation[]   @relation("FarmActivityObservationAuthor")
+  notifications              Notification[]
+  notificationPreferences    NotificationPreference[]
+  notificationDevices        NotificationDevice[]
+  notificationDeliveries     NotificationDelivery[]
+  acknowledgedAlerts         FarmAlert[]                 @relation("AlertAcknowledger")
+  resolvedAlerts             FarmAlert[]                 @relation("AlertResolver")
+  expenses                   Expense[]
+  sales                      Sale[]
+  lossRecords                FinancialLoss[]
+  budgets                    Budget[]
+  budgetItems                BudgetItem[]
+  auditLogs                  AuditLog[]
+  productionRecords          ProductionRecord[]
+  harvests                   Harvest[]
+  otpVerifications           OtpVerification[]
+  authSessions               AuthSession[]
+  communityPosts             CommunityPost[]
+  communityComments          CommunityComment[]
+  communityLikes             CommunityLike[]
+  communityReports           CommunityReport[]
   communityModerationActions CommunityModerationAction[]
 
   @@index([email])
   @@index([phone])
   @@index([status])
+}
+
+/// Registration data retained until the selected OTP is verified
+model PendingRegistration {
+  id                 String     @id @default(cuid())
+  email              String     @unique @db.VarChar(255)
+  phone              String     @unique @db.VarChar(20)
+  firstName          String     @db.VarChar(100)
+  lastName           String     @db.VarChar(100)
+  passwordHash       String     @db.VarChar(255)
+  verificationMethod OtpChannel
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  otpVerifications OtpVerification[]
+
+  @@index([createdAt])
 }
 
 model CommunityPost {
@@ -532,11 +557,11 @@ model CommunityPost {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author       User                       @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  media        CommunityPostMedia[]
-  comments     CommunityComment[]
-  likes        CommunityLike[]
-  reports      CommunityReport[]
+  author            User                        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  media             CommunityPostMedia[]
+  comments          CommunityComment[]
+  likes             CommunityLike[]
+  reports           CommunityReport[]
   moderationActions CommunityModerationAction[]
 
   @@index([createdAt])
@@ -545,11 +570,11 @@ model CommunityPost {
 }
 
 model CommunityPostMedia {
-  id        String        @id @default(cuid())
+  id        String   @id @default(cuid())
   postId    String
-  mediaType String        @db.VarChar(20)
-  dataUrl   String        @db.Text
-  createdAt DateTime      @default(now())
+  mediaType String   @db.VarChar(20)
+  dataUrl   String   @db.Text
+  createdAt DateTime @default(now())
 
   post CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
@@ -586,17 +611,17 @@ model CommunityLike {
 }
 
 model CommunityReport {
-  id          String   @id @default(cuid())
-  postId      String?
-  commentId   String?
-  reporterId  String
-  reason      String   @db.VarChar(100)
-  details     String?  @db.Text
-  status      String   @default("OPEN") @db.VarChar(30)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  postId     String?
+  commentId  String?
+  reporterId String
+  reason     String   @db.VarChar(100)
+  details    String?  @db.Text
+  status     String   @default("OPEN") @db.VarChar(30)
+  createdAt  DateTime @default(now())
 
-  post      CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
-  reporter  User           @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  post     CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter User           @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
   @@index([postId])
@@ -612,8 +637,8 @@ model CommunityModerationAction {
   reason    String?  @db.Text
   createdAt DateTime @default(now())
 
-  post    CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
-  actor   User           @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  post  CommunityPost? @relation(fields: [postId], references: [id], onDelete: Cascade)
+  actor User           @relation(fields: [actorId], references: [id], onDelete: Cascade)
 
   @@index([createdAt])
   @@index([postId])
@@ -666,8 +691,8 @@ model UserRole {
   createdAt DateTime @default(now())
 
   /// Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role  @relation(fields: [roleId], references: [id], onDelete: Restrict)
 
   @@unique([userId, roleId])
   @@index([userId])
@@ -751,6 +776,7 @@ model Farm {
   inventoryLosses        InventoryLoss[]
   inventoryMovements     InventoryMovement[]
   inventoryStockBalances InventoryStockBalance[]
+  projects               Project[]
 
   @@index([ownerId])
   @@index([status])
@@ -772,12 +798,48 @@ model FarmMember {
   updatedAt DateTime @updatedAt
 
   /// Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm Farm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
 
   @@unique([userId, farmId])
   @@index([userId])
   @@index([farmId])
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  farmId      String
+  createdBy   String
+  name        String        @db.VarChar(255)
+  description String?       @db.Text
+  status      ProjectStatus @default(PLANNED)
+  currency    Currency      @default(GHS)
+  startDate   DateTime
+  endDate     DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  farm        Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  creator     User                @relation("ProjectCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  budgetLines ProjectBudgetLine[]
+  expenses    Expense[]
+
+  @@index([farmId, status])
+  @@index([createdBy])
+}
+
+model ProjectBudgetLine {
+  id            String   @id @default(cuid())
+  projectId     String
+  name          String   @db.VarChar(255)
+  description   String?  @db.Text
+  plannedAmount Decimal  @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
 }
 
 /// Field - represents physical fields within a farm
@@ -1811,6 +1873,7 @@ model Expense {
   fieldId          String?
   livestockId      String?
   farmActivityId   String?
+  projectId        String?
   inputId          String?
   supplier         String?   @db.VarChar(255)
   reference        String?   @db.VarChar(255)
@@ -1830,6 +1893,7 @@ model Expense {
   recordedByUser User       @relation(fields: [recordedBy], references: [id], onDelete: Restrict)
   cropCycle      CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
   livestock      Livestock? @relation(fields: [livestockId], references: [id], onDelete: SetNull)
+  project        Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([farmId])
   @@index([expenseDate])
@@ -1837,6 +1901,7 @@ model Expense {
   @@index([status])
   @@index([costType])
   @@index([currency])
+  @@index([projectId])
 }
 
 /// Sale - reusable sales/revenue transaction.
@@ -2309,10 +2374,11 @@ model MediaFile {
 
 /// OTP Verification - manages one-time passwords for various purposes
 model OtpVerification {
-  id      String     @id @default(cuid())
-  userId  String
-  purpose OtpPurpose
-  channel OtpChannel
+  id                    String     @id @default(cuid())
+  userId                String?
+  pendingRegistrationId String?
+  purpose               OtpPurpose
+  channel               OtpChannel
 
   /// OTP code hash (never store plain OTP)
   codeHash String @db.VarChar(255)
@@ -2332,9 +2398,11 @@ model OtpVerification {
   createdAt DateTime @default(now())
 
   /// Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User?                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pendingRegistration PendingRegistration? @relation(fields: [pendingRegistrationId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([pendingRegistrationId])
   @@index([purpose])
   @@index([channel])
   @@index([expiresAt])

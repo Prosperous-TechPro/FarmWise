@@ -14,7 +14,6 @@ import {
   validateProfileUpdate,
 } from '../validators/authValidator.js';
 import {
-  registerUser,
   verifyEmail,
   verifyPhone,
   login,
@@ -23,10 +22,13 @@ import {
   logoutAll,
   changePassword,
   resetPassword,
+  createPendingRegistration,
+  completePendingRegistration,
 } from '../services/authService.js';
 import { generateAndSendOtp, verifyOtp, resendOtp } from '../services/otpService.js';
 import { findUserById, findUserByPhone, updateUser } from '../repositories/userRepository.js';
 import logger from '../utils/logger.js';
+import { findPendingRegistrationById } from '../repositories/pendingRegistrationRepository.js';
 
 /**
  * POST /api/v1/auth/register
@@ -57,7 +59,7 @@ export async function register(req, res) {
     }
 
     // Register user
-    const result = await registerUser({
+    const result = await createPendingRegistration({
       ...validation.normalizedData,
     });
 
@@ -67,7 +69,7 @@ export async function register(req, res) {
       const destination = validation.normalizedData[verificationMethod === 'EMAIL' ? 'email' : 'phone'];
 
       otpResult = await generateAndSendOtp({
-        userId: result.userId,
+        pendingRegistrationId: result.pendingRegistrationId,
         purpose: 'ACCOUNT_VERIFICATION',
         channel: verificationMethod,
         destination,
@@ -78,7 +80,7 @@ export async function register(req, res) {
       });
     } catch (otpError) {
       logger.error(`OTP generation failed during registration`, {
-        userId: result.userId,
+        pendingRegistrationId: result.pendingRegistrationId,
         error: otpError.message,
       });
 
@@ -86,7 +88,7 @@ export async function register(req, res) {
         success: false,
         message: 'Account is pending verification, but OTP delivery failed. Please request a new OTP.',
         data: {
-          userId: result.userId,
+          pendingRegistrationId: result.pendingRegistrationId,
           email: result.email,
           verificationMethod,
         },
@@ -95,9 +97,9 @@ export async function register(req, res) {
 
     return res.status(201).json({
       success: true,
-      message: `Account created. Verification code sent to your ${verificationMethod.toLowerCase()}.`,
+      message: `Verification code sent to your ${verificationMethod.toLowerCase()}. Complete verification to create your account.`,
       data: {
-        userId: result.userId,
+        pendingRegistrationId: result.pendingRegistrationId,
         email: result.email,
         verificationMethod,
         otpExpiresIn: otpResult.expiresIn,
@@ -132,14 +134,15 @@ export async function register(req, res) {
  */
 export async function verifyOtpEndpoint(req, res) {
   try {
-    const { userId, code, channel } = req.body;
+    const { userId, pendingRegistrationId, code, channel } = req.body;
+    const targetId = pendingRegistrationId || userId;
 
-    if (!userId || !code || !channel) {
+    if (!targetId || !code || !channel || (pendingRegistrationId && userId)) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields',
         errors: {
-          userId: !userId ? 'User ID is required' : undefined,
+          pendingRegistrationId: !targetId ? 'Pending registration ID is required' : undefined,
           code: !code ? 'OTP code is required' : undefined,
           channel: !channel ? 'Channel is required' : undefined,
         },
@@ -158,13 +161,28 @@ export async function verifyOtpEndpoint(req, res) {
 
     // Verify OTP
     await verifyOtp({
-      userId,
+      userId: pendingRegistrationId ? undefined : userId,
+      pendingRegistrationId,
       purpose: 'ACCOUNT_VERIFICATION',
       channel,
       code,
     });
 
     // Update user verification status
+    if (pendingRegistrationId) {
+      const pendingRegistration = await findPendingRegistrationById(pendingRegistrationId);
+      if (!pendingRegistration) throw new Error('Pending registration not found');
+      if (pendingRegistration.verificationMethod !== channel) {
+        throw new Error('Verification channel does not match pending registration');
+      }
+      const user = await completePendingRegistration(pendingRegistrationId);
+      return res.status(200).json({
+        success: true,
+        message: 'Account verified successfully. You can now log in.',
+        data: { userId: user.id },
+      });
+    }
+
     if (channel === 'EMAIL') {
       await verifyEmail(userId);
     } else if (channel === 'SMS') {
@@ -172,7 +190,7 @@ export async function verifyOtpEndpoint(req, res) {
     }
 
     logger.info(`Account verified for user`, {
-      userId,
+      userId: targetId,
       channel,
     });
 
@@ -185,6 +203,7 @@ export async function verifyOtpEndpoint(req, res) {
     logger.error(`OTP verification error`, {
       error: error.message,
       userId: req.body.userId,
+      pendingRegistrationId: req.body.pendingRegistrationId,
     });
 
     // Determine status code based on error
@@ -209,14 +228,15 @@ export async function verifyOtpEndpoint(req, res) {
  */
 export async function resendOtpEndpoint(req, res) {
   try {
-    const { userId, channel } = req.body;
+    const { userId, pendingRegistrationId, channel } = req.body;
+    const targetId = pendingRegistrationId || userId;
 
-    if (!userId || !channel) {
+    if (!targetId || !channel || (pendingRegistrationId && userId)) {
       return res.status(400).json({
         success: false,
         message: 'Missing required fields',
         errors: {
-          userId: !userId ? 'User ID is required' : undefined,
+          pendingRegistrationId: !targetId ? 'Pending registration ID is required' : undefined,
           channel: !channel ? 'Channel is required' : undefined,
         },
       });
@@ -232,22 +252,25 @@ export async function resendOtpEndpoint(req, res) {
       });
     }
 
-    // Get user
-    const user = await findUserById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found',
-        errors: { userId: 'No user with this ID' },
-      });
+    const user = pendingRegistrationId ? null : await findUserById(userId);
+    const pendingRegistration = pendingRegistrationId
+      ? await findPendingRegistrationById(pendingRegistrationId)
+      : null;
+    if (!user && !pendingRegistration) {
+      return res.status(404).json({ success: false, message: 'Registration target not found' });
+    }
+    if (pendingRegistration && pendingRegistration.verificationMethod !== channel) {
+      return res.status(400).json({ success: false, message: 'Verification channel does not match pending registration' });
     }
 
-    // Determine destination
-    const destination = channel === 'EMAIL' ? user.email : user.phone;
+    const destination = channel === 'EMAIL'
+      ? (pendingRegistration || user).email
+      : (pendingRegistration || user).phone;
 
     // Resend OTP
     const result = await resendOtp({
-      userId,
+      userId: pendingRegistrationId ? undefined : userId,
+      pendingRegistrationId,
       purpose: 'ACCOUNT_VERIFICATION',
       channel,
       destination,
@@ -259,9 +282,11 @@ export async function resendOtpEndpoint(req, res) {
       success: true,
       message: `Verification code resent to your ${channel.toLowerCase()}`,
       data: {
-        userId,
+        userId: pendingRegistrationId ? undefined : userId,
+        pendingRegistrationId,
         channel,
         expiresIn: result.expiresIn,
+        retryAfter: result.cooldownSeconds,
       },
     });
   } catch (error) {
@@ -269,6 +294,16 @@ export async function resendOtpEndpoint(req, res) {
       error: error.message,
       userId: req.body.userId,
     });
+
+    if (error.statusCode === 429) {
+      res.set('Retry-After', String(error.retryAfter || 60));
+      return res.status(429).json({
+        success: false,
+        message: error.message,
+        errors: { otp: error.message },
+        retryAfter: error.retryAfter || 60,
+      });
+    }
 
     return res.status(400).json({
       success: false,

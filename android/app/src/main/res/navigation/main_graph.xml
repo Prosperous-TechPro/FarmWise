@@ -2,7 +2,7 @@
 <navigation xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/main_graph" app:startDestination="@id/loginFragment">
     <fragment android:id="@+id/loginFragment" android:name="com.farmwise.app.presentation.auth.LoginFragment" android:label="Login" />
     <fragment android:id="@+id/registerFragment" android:name="com.farmwise.app.presentation.auth.RegisterFragment" android:label="Register" />
-    <fragment android:id="@+id/otpFragment" android:name="com.farmwise.app.presentation.auth.VerificationFragment" android:label="OTP verification" />
+    <fragment android:id="@+id/otpFragment" android:name="com.farmwise.app.presentation.auth.VerificationFragment" android:label="OTP verification"><argument android:name="pendingRegistrationId" app:argType="string" android:defaultValue="" /><argument android:name="channel" app:argType="string" android:defaultValue="EMAIL" /></fragment>
     <fragment android:id="@+id/twoFactorFragment" android:name="com.farmwise.app.presentation.auth.VerificationFragment" android:label="Two-factor verification"><argument android:name="twoFactor" android:defaultValue="true" app:argType="boolean" /></fragment>
     <fragment android:id="@+id/dashboardFragment" android:name="com.farmwise.app.presentation.dashboard.DashboardFragment" android:label="Dashboard" />
     <fragment android:id="@+id/farmsFragment" android:name="com.farmwise.app.presentation.farms.FarmListFragment" android:label="Farms" />

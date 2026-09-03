@@ -5,7 +5,11 @@
         <EditText android:id="@+id/first_name_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:hint="First name" android:inputType="textPersonName" />
         <EditText android:id="@+id/last_name_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Last name" android:inputType="textPersonName" />
         <EditText android:id="@+id/email_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Email" android:inputType="textEmailAddress" />
-        <EditText android:id="@+id/phone_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Phone (optional)" android:inputType="phone" />
+        <EditText android:id="@+id/phone_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Phone" android:inputType="phone" />
+        <RadioGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <RadioButton android:id="@+id/email_method" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:text="Email code" />
+            <RadioButton android:id="@+id/sms_method" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="SMS code" />
+        </RadioGroup>
         <EditText android:id="@+id/register_password_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Password" android:inputType="textPassword" />
         <EditText android:id="@+id/confirm_password_input" android:layout_width="match_parent" android:layout_height="wrap_content" android:hint="Confirm password" android:inputType="textPassword" />
         <com.google.android.material.button.MaterialButton android:id="@+id/register_button" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="20dp" android:text="@string/register" />

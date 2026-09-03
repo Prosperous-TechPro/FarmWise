@@ -201,6 +201,7 @@ function Farms({ farms, onCreated, onUpdated, onDeleted }) {
 
 function Records({ farms }) {
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [selectedFarmId, setSelectedFarmId] = useState(farms[0]?.id || ''); const [dateFrom, setDateFrom] = useState(''); const [dateTo, setDateTo] = useState(''); const [summary, setSummary] = useState(null); const [summaryLoading, setSummaryLoading] = useState(false); const [summaryError, setSummaryError] = useState('');
   const items = [
     ['Fields', 'Map boundaries, acreage, and field activity', 'farm', 'Organize field boundaries, acreage, soil notes, and recent field work.'],
     ['Livestock', 'Track animals, health, and breeding records', 'livestock', 'Keep animal groups, health checks, treatments, and breeding records together.'],
@@ -210,6 +211,8 @@ function Records({ farms }) {
     ['Activities', 'Log work, observations, and harvests', 'activity', 'Record field work, observations, tasks, and harvest activity as it happens.'],
   ];
   const selected = items.find(([title]) => title === selectedRecord);
+
+  useEffect(() => { if (!selectedFarmId) { setSummary(null); return; } setSummaryLoading(true); setSummaryError(''); const params = new URLSearchParams({ farmId: selectedFarmId }); if (dateFrom) params.set('dateFrom', dateFrom); if (dateTo) params.set('dateTo', dateTo); apiClient.get(`/reports/summary?${params}`).then((result) => setSummary(result.data)).catch((err) => setSummaryError(err.message || 'Unable to load records summary.')).finally(() => setSummaryLoading(false)); }, [selectedFarmId, dateFrom, dateTo]);
 
   if (selectedRecord === 'Fields') return <FieldManagement farms={farms} onBack={() => setSelectedRecord(null)} />;
 
@@ -221,7 +224,8 @@ function Records({ farms }) {
     </section>;
   }
 
-  return <section><div className="section-heading"><div><p className="eyebrow">OPERATIONS</p><h2>Records</h2><p className="muted">The working layers behind every farm decision.</p></div><span className="record-count">{farms.length} farm{farms.length === 1 ? '' : 's'} connected</span></div><div className="record-grid">{items.map(([title, text, icon]) => <button className="record-card" type="button" key={title} onClick={() => setSelectedRecord(title)}><span className={`record-icon ${icon}`} /><h3>{title}</h3><p>{text}</p><span className="record-open">Open records <span aria-hidden="true">→</span></span></button>)}</div></section>;
+  const financial = summary?.financial || {}; const production = summary?.production || {};
+  return <section><div className="section-heading"><div><p className="eyebrow">OPERATIONS</p><h2>Records</h2><p className="muted">The working layers behind every farm decision.</p></div><span className="record-count">{farms.length} farm{farms.length === 1 ? '' : 's'} connected</span></div>{farms.length > 0 && <div className="record-content-panel"><div><label>Farm<select value={selectedFarmId} onChange={(event) => setSelectedFarmId(event.target.value)}>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select></label></div><label>From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label>To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></div>}{summaryError && <div className="notice error">{summaryError}</div>}{summaryLoading ? <div className="loading-line" aria-label="Loading records summary" /> : summary && <div className="stat-grid records-summary"><Stat label="Total revenue" value={`GHS ${Number(financial.revenue || 0).toLocaleString()}`} detail={`${financial.sales || 0} sales`} tone="green" /><Stat label="Total expenses" value={`GHS ${Number(financial.expenses || 0).toLocaleString()}`} detail={`${financial.expenseCount || 0} expenses`} tone="red" /><Stat label="Net profit/loss" value={`GHS ${Number((financial.revenue || 0) - (financial.expenses || 0) - (financial.losses || 0)).toLocaleString()}`} detail={`${financial.losses || 0} losses`} tone="blue" /><Stat label="Production" value={Number(production.recordCount || 0).toLocaleString()} detail="Stored production records" tone="yellow" /></div>}<div className="record-grid">{items.map(([title, text, icon]) => <button className="record-card" type="button" key={title} onClick={() => setSelectedRecord(title)}><span className={`record-icon ${icon}`} /><h3>{title}</h3><p>{text}</p><span className="record-open">Open records <span aria-hidden="true">→</span></span></button>)}</div></section>;
 }
 
 function FieldManagement({ farms, onBack }) {

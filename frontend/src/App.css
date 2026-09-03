@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 .liker-summary { flex:1; min-width:0; color:var(--muted); font-size:11px; overflow-wrap:anywhere; }
+.comment time { display:block; margin-top:4px; color:#9aa69d; font-size:10px; }
 .comments-panel { padding-top:14px; } .comment-list { display:grid; gap:10px; padding:12px; background:#f6faef; border-radius:5px; } .comment strong { font-size:12px; } .comment p { margin:2px 0 0; color:var(--muted); font-size:13px; } .comment-form { display:flex; gap:8px; margin-top:10px; } .comment-form input { margin:0; } .comment-form .primary-button { flex:0 0 auto; }
 .record-card { width:100%; color:var(--ink); text-align:left; cursor:pointer; transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease; }
 .record-card:hover,.record-card.selected { transform:translateY(-3px); border-color:var(--green); box-shadow:0 24px 60px rgba(23,58,36,.12); }

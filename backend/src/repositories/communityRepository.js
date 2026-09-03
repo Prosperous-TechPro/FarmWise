@@ -1,6 +1,7 @@
 import prisma from '../lib/prisma.js';
 
 const postInclude = (viewerId) => ({
+  author: { select: { id: true, firstName: true, lastName: true, profilePictureUrl: true } },
   media: true,
   comments: {
     where: { status: 'PUBLISHED' },
@@ -9,7 +10,9 @@ const postInclude = (viewerId) => ({
     include: { author: { select: { id: true, firstName: true, lastName: true, profilePictureUrl: true } } },
   },
   _count: { select: { likes: true, comments: true, reports: true } },
-  ...(viewerId ? { likes: { where: { userId: viewerId }, select: { id: true } } } : {}),
+  likes: {
+    include: { user: { select: { id: true, firstName: true, lastName: true } } },
+  },
 });
 
 export function listPosts({ limit, cursor, viewerId }) {

@@ -35,7 +35,7 @@ export async function getCommunityPosts({ limit = 20, cursor, viewerId }) {
   const posts = await listPosts({ limit: pageSize, cursor, viewerId });
   const hasMore = posts.length > pageSize;
   if (hasMore) posts.pop();
-  return { posts: posts.map((post) => ({ ...post, viewerLiked: Boolean(post.likes?.length) })), nextCursor: hasMore ? posts[posts.length - 1]?.id : null };
+  return { posts: posts.map((post) => ({ ...post, viewerLiked: Boolean(post.likes?.some((like) => like.userId === viewerId)), likers: post.likes?.map((like) => like.user) || [] })), nextCursor: hasMore ? posts[posts.length - 1]?.id : null };
 }
 
 export async function createCommunityPost(userId, input) {

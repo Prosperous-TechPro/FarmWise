@@ -82,10 +82,9 @@ export async function register(req, res) {
         error: otpError.message,
       });
 
-      // Don't fail the registration, just warn user
-      return res.status(201).json({
-        success: true,
-        message: 'Account created, but OTP delivery failed. Please request a new OTP.',
+      return res.status(502).json({
+        success: false,
+        message: 'Account is pending verification, but OTP delivery failed. Please request a new OTP.',
         data: {
           userId: result.userId,
           email: result.email,

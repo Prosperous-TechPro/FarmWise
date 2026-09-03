@@ -12,6 +12,6 @@ export default defineConfig({
     sourcemap: false,
   },
   define: {
-    'process.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || 'https://victoria-s-kente-shop.onrender.com/api/v1'),
+    'process.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || 'https://backend-lake-two-45.vercel.app/api/v1'),
   },
 });

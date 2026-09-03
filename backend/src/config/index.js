@@ -40,7 +40,7 @@ const config = {
 
   // Server
   port: parseInt(process.env.PORT || '3000', 10),
-  backendUrl: process.env.BACKEND_URL || 'https://victoria-s-kente-shop.onrender.com',
+  backendUrl: process.env.BACKEND_URL || 'https://backend-4we39jf8b-prosperous-kls-projects.vercel.app',
 
   // Frontend
   frontendUrl: process.env.FRONTEND_URL || 'https://frontend-eight-rho-92.vercel.app',

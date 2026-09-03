@@ -4,7 +4,7 @@
  * Centralized configuration management for frontend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://victoria-s-kente-shop.onrender.com/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://backend-lake-two-45.vercel.app/api/v1';
 
 const config = {
   // API Configuration

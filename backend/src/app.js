@@ -83,6 +83,17 @@ export function createApp() {
   // ROUTES
   // ============================================
 
+  // Root endpoint
+  app.get('/', (req, res) => {
+    res.json({
+      success: true,
+      message: 'FarmWise API is running',
+      version: 'v1',
+      health: '/api/v1/health',
+      api: '/api/v1',
+    });
+  });
+
   // Health check
   app.get('/api/v1/health', (req, res) => {
     res.json({

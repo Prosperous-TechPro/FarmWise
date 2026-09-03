@@ -1,6 +1,6 @@
 import React from 'react';
 
-const items = [['dashboard', 'Overview'], ['farms', 'My farms'], ['records', 'Records'], ['community', 'Community'], ['notifications', 'Notifications'], ['account', 'Account']];
+const items = [['dashboard', 'Overview'], ['farms', 'My farms'], ['workers', 'Workers'], ['records', 'Records'], ['community', 'Community'], ['notifications', 'Notifications'], ['account', 'Account']];
 
 export default function Sidebar({ activeView, isOpen, onViewChange, onClose }) {
   return <>

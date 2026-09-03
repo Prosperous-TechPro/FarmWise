@@ -158,6 +158,37 @@ export async function getFarmAccess(farmId, userId) {
   });
 }
 
+export async function listFarmWorkers(farmId) {
+  return prisma.farmMember.findMany({
+    where: { farmId, status: 'ACTIVE', role: { not: 'OWNER' } },
+    include: {
+      user: { select: { id: true, email: true, firstName: true, lastName: true, status: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+}
+
+export async function findFarmMember(memberId) {
+  return prisma.farmMember.findUnique({ where: { id: memberId } });
+}
+
+export async function addFarmWorker(farmId, userId, role = 'WORKER') {
+  return prisma.farmMember.upsert({
+    where: { userId_farmId: { userId, farmId } },
+    create: { farmId, userId, role, status: 'ACTIVE' },
+    update: { role, status: 'ACTIVE' },
+    include: { user: { select: { id: true, email: true, firstName: true, lastName: true, status: true } } },
+  });
+}
+
+export async function updateFarmWorker(memberId, data) {
+  return prisma.farmMember.update({
+    where: { id: memberId },
+    data,
+    include: { user: { select: { id: true, email: true, firstName: true, lastName: true, status: true } } },
+  });
+}
+
 export async function findFieldById(fieldId) {
   return prisma.field.findUnique({
     where: { id: fieldId },
@@ -202,6 +233,10 @@ export default {
   createFarm,
   updateFarm,
   getFarmAccess,
+  listFarmWorkers,
+  findFarmMember,
+  addFarmWorker,
+  updateFarmWorker,
   findFieldById,
   listFarmFields,
   createField,

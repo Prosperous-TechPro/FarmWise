@@ -232,15 +232,18 @@ export async function getUserRoles(userId) {
  * @returns {Promise<Object>} Created UserRole relation
  */
 export async function assignRoleToUser(userId, roleId) {
-  return prisma.userRole.create({
-    data: {
-      userId,
-      roleId,
-    },
+  return prisma.userRole.upsert({
+    where: { userId_roleId: { userId, roleId } },
+    create: { userId, roleId },
+    update: {},
     include: {
       role: { include: { rolePermissions: { include: { permission: true } } } },
     },
   });
+}
+
+export async function removeRoleFromUser(userId, roleId) {
+  return prisma.userRole.delete({ where: { userId_roleId: { userId, roleId } } });
 }
 
 export async function ensureRole(name, description) {
@@ -263,5 +266,6 @@ export default {
   getUserPermissions,
   getUserRoles,
   assignRoleToUser,
+  removeRoleFromUser,
   ensureRole,
 };

@@ -22,6 +22,13 @@ function hasSystemAdminRole(user) {
   });
 }
 
+function hasSuperAdminRole(user) {
+  return Array.isArray(user?.roles) && user.roles.some((role) => {
+    const roleName = typeof role === 'string' ? role : role?.role?.name || role?.name;
+    return roleName === 'SUPERADMIN';
+  });
+}
+
 function AppContent() {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
   const [user, setUser] = useState(getStoredUser);
@@ -32,6 +39,7 @@ function AppContent() {
   const [loading, setLoading] = useState(false);
   const workspaceRequestRef = useRef(0);
   const isSystemAdmin = hasSystemAdminRole(user);
+  const isSuperAdmin = hasSuperAdminRole(user);
 
   const signOut = async () => {
     try { if (token) await apiClient.post('/auth/logout', {}); } catch { /* local sign-out still completes */ }
@@ -114,7 +122,7 @@ function AppContent() {
         {view === 'community' && <CommunityFeed user={user} />}
         {view === 'notifications' && <Notifications />}
         {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice('Profile updated successfully.'); }} />}
-        {view === 'users' && <UserManagement />}
+        {view === 'users' && <UserManagement isSuperAdmin={isSuperAdmin} />}
         {view === 'admin-farms' && <AdminFarmManagement />}
         {view === 'activities' && <AdminActivityManagement />}
         {view === 'workers' && <WorkerManagement farms={farms} />}
@@ -449,11 +457,12 @@ function Account({ user, onUpdated }) {
   return <section><div className="section-heading"><div><p className="eyebrow">ACCOUNT</p><h2>Personal details</h2><p className="muted">Keep your FarmWise contact details current.</p></div></div><form className="account-form" onSubmit={submit}>{error && <div className="notice error">{error}</div>}<div className="profile-picture-row"><div className="profile-picture">{form.profilePictureUrl ? <img src={form.profilePictureUrl} alt="Profile" /> : (user?.firstName || 'F')[0].toUpperCase()}</div><label className="picture-picker">Profile picture<input type="file" accept="image/png,image/jpeg,image/webp" onChange={selectPicture} /></label></div><div className="form-row"><label>First name<input value={form.firstName} onChange={update('firstName')} required autoComplete="given-name" /></label><label>Last name<input value={form.lastName} onChange={update('lastName')} required autoComplete="family-name" /></label></div><label>Phone number<input value={form.phone} onChange={update('phone')} required autoComplete="tel" /></label><label>Email address<input value={user?.email || ''} disabled /></label><button className="primary-button" disabled={busy}>{busy ? 'Saving...' : 'Save changes'} <span>→</span></button></form></section>;
 }
 
-function UserManagement() {
+function UserManagement({ isSuperAdmin }) {
   const [users, setUsers] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
   useEffect(() => { apiClient.get('/admin/users').then((result) => setUsers(result.data || [])).catch((err) => setError(err.message || 'Unable to load users.')).finally(() => setLoading(false)); }, []);
   const changeStatus = async (user, status) => { setError(''); try { const result = await apiClient.patch(`/admin/users/${user.id}/status`, { status }); setUsers(users.map((item) => item.id === user.id ? result.data : item)); } catch (err) { setError(err.message || 'Unable to update user.'); } };
-  return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>Registered users</h2><p className="muted">Review accounts and control access to the platform.</p></div><span className="record-count">{users.length} user{users.length === 1 ? '' : 's'}</span></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading users" /> : <div className="farm-grid">{users.map((u) => <div className="farm-card" key={u.id}><div className="farm-card-top"><span className="farm-avatar large">{u.profilePictureUrl ? <img src={u.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : (u.firstName || 'U')[0]}</span><select value={u.status} onChange={(event) => changeStatus(u, event.target.value)} aria-label={`Status for ${u.email}`}><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_VERIFICATION">PENDING</option></select></div><h3>{u.firstName} {u.lastName}</h3><p>{u.email}</p><div className="farm-card-foot"><span>{u.roles?.map(r => r.role?.name).join(', ') || 'User'}</span><span>{u.emailVerified ? 'Verified' : 'Unverified'}</span></div></div>)}{!users.length && <div className="panel empty-wide"><h3>No users found</h3><p className="muted">Users will appear here as they register.</p></div>}</div>}</section>;
+  const changeAdmin = async (user, isAdmin) => { setError(''); try { await apiClient[isAdmin ? 'delete' : 'post'](`/admin/users/${user.id}/admin`, isAdmin ? undefined : {}); const result = await apiClient.get('/admin/users'); setUsers(result.data || []); } catch (err) { setError(err.message || 'Unable to update admin access.'); } };
+  return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>Registered users</h2><p className="muted">Review accounts and control access to the platform.</p></div><span className="record-count">{users.length} user{users.length === 1 ? '' : 's'}</span></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading users" /> : <div className="farm-grid">{users.map((u) => { const isAdmin = u.roles?.some((r) => (r.role?.name || r.name) === 'ADMIN'); return <div className="farm-card" key={u.id}><div className="farm-card-top"><span className="farm-avatar large">{u.profilePictureUrl ? <img src={u.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : (u.firstName || 'U')[0]}</span><select value={u.status} onChange={(event) => changeStatus(u, event.target.value)} aria-label={`Status for ${u.email}`}><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_VERIFICATION">PENDING</option></select></div><h3>{u.firstName} {u.lastName}</h3><p>{u.email}</p><div className="farm-card-foot"><span>{u.roles?.map(r => r.role?.name || r.name).join(', ') || 'User'}</span>{isSuperAdmin && <button className="text-button" type="button" onClick={() => changeAdmin(u, isAdmin)}>{isAdmin ? 'Remove admin' : 'Make admin'}</button>}</div></div>; })}{!users.length && <div className="panel empty-wide"><h3>No users found</h3><p className="muted">Users will appear here as they register.</p></div>}</div>}</section>;
 }
 
 function AdminFarmManagement() {

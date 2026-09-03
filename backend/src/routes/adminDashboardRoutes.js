@@ -1,7 +1,7 @@
 import express from 'express';
 import { asyncHandler } from '../middleware/errorHandler.js';
-import { authenticate, authorize, requireRole } from '../middleware/authMiddleware.js';
-import { adminDashboardSummary, getUsers, getWorkers, updateUserStatus, getFarms, updateFarm, getActivities, updateActivity } from '../controllers/adminDashboardController.js';
+import { authenticate, authorize, requireRole, requireSuperAdmin } from '../middleware/authMiddleware.js';
+import { adminDashboardSummary, getUsers, getWorkers, updateUserStatus, addAdmin, removeAdmin, getFarms, updateFarm, getActivities, updateActivity } from '../controllers/adminDashboardController.js';
 
 const router = express.Router();
 router.use(authenticate, authorize);
@@ -11,6 +11,8 @@ router.get('/admin/dashboard/summary', asyncHandler(adminDashboardSummary));
 router.get('/admin/users', asyncHandler(getUsers));
 router.get('/admin/workers', asyncHandler(getWorkers));
 router.patch('/admin/users/:userId/status', asyncHandler(updateUserStatus));
+router.post('/admin/users/:userId/admin', requireSuperAdmin, asyncHandler(addAdmin));
+router.delete('/admin/users/:userId/admin', requireSuperAdmin, asyncHandler(removeAdmin));
 router.get('/admin/farms', asyncHandler(getFarms));
 router.patch('/admin/farms/:farmId', asyncHandler(updateFarm));
 router.get('/admin/activities', asyncHandler(getActivities));

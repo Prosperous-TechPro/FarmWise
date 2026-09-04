@@ -7,6 +7,7 @@ import {
   createFarmActivityObservationService,
   createFarmActivityService,
   createFarmActivityTaskService,
+  deleteFarmActivityService,
   createFarmHarvestService,
   createFarmProductionRecordService,
   getFarmActivityService,
@@ -16,6 +17,7 @@ import {
   listFarmActivityTypesService,
   listFarmHarvestsService,
   listFarmProductionRecordsService,
+  updateFarmActivityService,
 } from '../services/activityService.js';
 
 export async function listActivityTypes(req, res) {
@@ -49,6 +51,16 @@ export async function getActivity(req, res) {
 export async function createActivity(req, res) {
   const data = await createFarmActivityService(req.params.farmId, req.user.id, req.body);
   return res.status(201).json({ success: true, data, message: 'Activity created successfully' });
+}
+
+export async function updateActivity(req, res) {
+  const data = await updateFarmActivityService(req.params.farmId, req.params.activityId, req.body);
+  return res.status(200).json({ success: true, data, message: 'Activity updated successfully' });
+}
+
+export async function deleteActivity(req, res) {
+  await deleteFarmActivityService(req.params.farmId, req.params.activityId);
+  return res.status(204).send();
 }
 
 export async function createActivityTask(req, res) {
@@ -110,6 +122,8 @@ export default {
   listActivities,
   getActivity,
   createActivity,
+  updateActivity,
+  deleteActivity,
   createActivityTask,
   listActivityTasks,
   createActivityObservation,

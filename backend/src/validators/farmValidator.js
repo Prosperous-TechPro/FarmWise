@@ -17,6 +17,14 @@ function normalizeEnumValue(value, allowedValues, fallback) {
 export function validateCreateFarm(data = {}) {
   const errors = {};
 
+  if (Object.prototype.hasOwnProperty.call(data, 'ownerId')) {
+    errors.ownerId = 'Farm owner is managed by the system and cannot be set by the client';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, 'id')) {
+    errors.id = 'Farm id is immutable and managed by the system';
+  }
+
   const name = typeof data.name === 'string' ? data.name.trim() : '';
   if (!name) {
     errors.name = 'Farm name is required';
@@ -71,6 +79,18 @@ export function validateCreateFarm(data = {}) {
 export function validateUpdateFarm(data = {}) {
   const errors = {};
   const normalizedData = {};
+
+  if (Object.prototype.hasOwnProperty.call(data, 'ownerId')) {
+    errors.ownerId = 'Farm owner is managed by the system and cannot be set by the client';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, 'id')) {
+    errors.id = 'Farm id is immutable and managed by the system';
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, 'createdAt')) {
+    errors.createdAt = 'Farm creation timestamp is immutable';
+  }
 
   if (data.name !== undefined) {
     if (typeof data.name !== 'string') {

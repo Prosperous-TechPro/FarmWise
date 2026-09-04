@@ -77,3 +77,33 @@ test('validateCreateHarvest requires harvest date after planting', () => {
   assert.equal(result.isValid, false);
   assert.match(result.errors.harvestDate, /after planting/i);
 });
+
+test('validateCreateCropCycle rejects harvest dates before planting', () => {
+  const result = validateCreateCropCycle({
+    fieldId: 'field-1',
+    cropId: 'crop-1',
+    area: 2,
+    plantingDate: '2026-05-01',
+    expectedHarvestDate: '2026-04-30',
+    actualHarvestDate: '2026-04-29',
+  });
+
+  assert.equal(result.isValid, false);
+  assert.match(result.errors.expectedHarvestDate, /before planting/i);
+  assert.match(result.errors.actualHarvestDate, /before planting/i);
+});
+
+test('validateCreateCropCycle accepts harvested and archived statuses', () => {
+  for (const status of ['HARVESTED', 'ARCHIVED']) {
+    const result = validateCreateCropCycle({
+      fieldId: 'field-1',
+      cropId: 'crop-1',
+      area: 2,
+      plantingDate: '2026-05-01',
+      status,
+    });
+
+    assert.equal(result.isValid, true);
+    assert.equal(result.normalizedData.status, status);
+  }
+});

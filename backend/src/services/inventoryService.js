@@ -7,6 +7,7 @@ import {
   createInventoryAdjustment,
   createInventoryIssue,
   createInventoryItem,
+  deleteInventoryItem,
   createInventoryReceipt,
   createInventoryTransfer,
   createStorageLocation,
@@ -104,6 +105,16 @@ export async function updateInventoryItemService(farmId, itemId, input) {
     defaultLocationId: input.defaultLocationId || null,
     isActive: validation.normalizedData.isActive ?? true,
   });
+}
+
+export async function deleteInventoryItemService(farmId, itemId) {
+  const item = await getInventoryItemById(itemId);
+  if (!item || item.farmId !== farmId) {
+    const error = new Error('Inventory item not found in this farm');
+    error.statusCode = 404;
+    throw error;
+  }
+  return deleteInventoryItem(itemId);
 }
 
 export async function listFarmStorageLocationsService(farmId) {
@@ -271,6 +282,7 @@ export default {
   listFarmInventoryItemsService,
   createInventoryItemService,
   updateInventoryItemService,
+  deleteInventoryItemService,
   listFarmStorageLocationsService,
   createStorageLocationService,
   listFarmInventoryReceiptsService,

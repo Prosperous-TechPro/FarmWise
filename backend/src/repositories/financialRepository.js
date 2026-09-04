@@ -34,6 +34,14 @@ export async function createExpense(data) {
   });
 }
 
+export async function deleteExpense(expenseId) {
+  return prisma.expense.delete({ where: { id: expenseId } });
+}
+
+export async function getExpenseById(expenseId) {
+  return prisma.expense.findUnique({ where: { id: expenseId }, select: { id: true, farmId: true } });
+}
+
 export async function listSalesByFarm(farmId, filters = {}) {
   return prisma.sale.findMany({
     where: {
@@ -170,6 +178,8 @@ export async function getFarmFinancialSummary(farmId) {
 export default {
   listExpensesByFarm,
   createExpense,
+  deleteExpense,
+  getExpenseById,
   listSalesByFarm,
   createSale,
   listLossesByFarm,

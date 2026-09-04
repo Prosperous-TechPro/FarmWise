@@ -1,6 +1,9 @@
 import prisma from '../lib/prisma.js';
+
 function toNumber(value) {
-  
+  if (value === null || value === undefined || value === '') return 0;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : 0;
 }
 
 function safeMetric(query, fallback = 0) {
@@ -30,6 +33,13 @@ export function buildAdminDashboardSummary(metrics = {}) {
   const netProfit = toNumber(metrics.netProfit ?? totalRevenue - totalExpenses);
   const alertCount = toNumber(metrics.alertCount ?? 0);
   const recentActivityCount = toNumber(metrics.recentActivityCount ?? 0);
+  const totalInventory = toNumber(metrics.totalInventory ?? 0);
+  const totalPosts = toNumber(metrics.totalPosts ?? 0);
+  const totalComments = toNumber(metrics.totalComments ?? 0);
+  const totalReports = toNumber(metrics.totalReports ?? 0);
+  const pendingReports = toNumber(metrics.pendingReports ?? 0);
+  const totalAdmins = toNumber(metrics.totalAdmins ?? 0);
+  const totalSuperAdmins = toNumber(metrics.totalSuperAdmins ?? 0);
 
   return {
     totalUsers,
@@ -42,6 +52,7 @@ export function buildAdminDashboardSummary(metrics = {}) {
     totalWorkers,
     totalCrops,
     totalLivestock,
+    totalInventory,
     totalProduction,
     totalHarvest,
     totalSales,
@@ -51,6 +62,12 @@ export function buildAdminDashboardSummary(metrics = {}) {
     netProfit,
     alertCount,
     recentActivityCount,
+    totalPosts,
+    totalComments,
+    totalReports,
+    pendingReports,
+    totalAdmins,
+    totalSuperAdmins,
     status: 'OK',
   };
 }
@@ -59,12 +76,19 @@ export async function getSystemWideDashboardSummary() {
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [usersByStatus, farmsByStatus, roles, salesAggregate, expenseAggregate] = await Promise.all([
+    const [usersByStatus, farmsByStatus, roles, salesAggregate, expenseAggregate, cropCount, livestockCount, inventoryCount, postCount, commentCount, reportCounts, adminRoleCounts] = await Promise.all([
     safeMetric(prisma.user.groupBy({ by: ['status'], _count: { id: true } }), []),
     safeMetric(prisma.farm.groupBy({ by: ['status'], _count: { id: true } }), []),
     safeMetric(prisma.role.findMany({ where: { name: { in: ['FARM_OWNER', 'WORKER'] } }, select: { name: true, _count: { select: { userRoles: true } } } }), []),
     safeMetric(prisma.sale.aggregate({ _sum: { totalAmount: true }, _count: { id: true } }), {}),
-    safeMetric(prisma.expense.aggregate({ _sum: { amount: true } }), {}),
+      safeMetric(prisma.expense.aggregate({ _sum: { amount: true } }), {}),
+      safeMetric(prisma.cropCycle.count(), 0),
+      safeMetric(prisma.livestock.count(), 0),
+      safeMetric(prisma.inventoryItem.count(), 0),
+      safeMetric(prisma.communityPost.count(), 0),
+      safeMetric(prisma.communityComment.count(), 0),
+      safeMetric(prisma.communityReport.groupBy({ by: ['status'], _count: { id: true } }), []),
+      safeMetric(prisma.role.findMany({ where: { name: { in: ['ADMIN', 'SUPERADMIN'] } }, select: { name: true, _count: { select: { userRoles: true } } } }), []),
   ]);
 
   const userCount = usersByStatus.reduce((sum, row) => sum + row._count.id, 0);
@@ -75,9 +99,7 @@ export async function getSystemWideDashboardSummary() {
   const activeFarmCount = farmsByStatus.find((row) => row.status === 'ACTIVE')?._count.id || 0;
   const farmOwnerCount = roles.find((row) => row.name === 'FARM_OWNER')?._count.userRoles || 0;
   const workerCount = roles.find((row) => row.name === 'WORKER')?._count.userRoles || 0;
-  const cropCount = 0;
-  const livestockCount = 0;
-  const productionCount = 0;
+    const productionCount = cropCount;
   const harvestCount = 0;
   const salesCount = salesAggregate?._count?.id || 0;
   const alertCount = 0;
@@ -105,11 +127,24 @@ export async function getSystemWideDashboardSummary() {
     netProfit: totalRevenue - totalExpenses,
     alertCount,
     recentActivityCount,
+      pendingReports: reportCounts.find((row) => row.status === 'PENDING')?._count.id || 0,
+      totalReports: reportCounts.reduce((sum, row) => sum + row._count.id, 0),
+      totalInventory: inventoryCount,
+      totalPosts: postCount,
+      totalComments: commentCount,
+      totalAdmins: adminRoleCounts.find((row) => row.name === 'ADMIN')?._count.userRoles || 0,
+      totalSuperAdmins: adminRoleCounts.find((row) => row.name === 'SUPERADMIN')?._count.userRoles || 0,
   });
 }
 
-export async function getAllUsers() {
+export async function getAllUsers(filters = {}) {
+  const search = typeof filters.search === 'string' ? filters.search.trim() : '';
   return prisma.user.findMany({
+    where: {
+      ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.role ? { userRoles: { some: { role: { name: filters.role } } } } : {}),
+      ...(search ? { OR: [{ firstName: { contains: search, mode: 'insensitive' } }, { lastName: { contains: search, mode: 'insensitive' } }, { email: { contains: search, mode: 'insensitive' } }, { phone: { contains: search, mode: 'insensitive' } }, { id: search }] } : {}),
+    },
     select: {
       id: true,
       email: true,

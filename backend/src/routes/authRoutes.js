@@ -14,6 +14,7 @@ import {
   logoutAllEndpoint,
   changePasswordEndpoint,
   resetPasswordEndpoint,
+  forgotPasswordEndpoint,
   getCurrentUser,
   updateCurrentUser,
 } from '../controllers/authController.js';
@@ -41,6 +42,7 @@ router.post('/resend-otp', asyncHandler(resendOtpEndpoint));
 // Login
 // POST /api/v1/auth/login
 router.post('/login', asyncHandler(loginEndpoint));
+router.post('/forgot-password', asyncHandler(forgotPasswordEndpoint));
 
 // Refresh access token
 // POST /api/v1/auth/refresh

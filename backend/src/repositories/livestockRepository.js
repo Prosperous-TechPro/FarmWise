@@ -61,9 +61,25 @@ export async function updateLivestock(animalId, data) {
   });
 }
 
+export async function deleteLivestock(animalId) {
+  return prisma.livestock.delete({ where: { id: animalId } });
+}
+
 export async function listLivestockSpecies() {
   return prisma.livestockSpecies.findMany({
     orderBy: { name: 'asc' },
+  });
+}
+
+export async function ensureDefaultLivestockSpecies() {
+  await prisma.livestockSpecies.createMany({
+    data: [
+      { name: 'Cattle', description: 'Cattle and bovine livestock' },
+      { name: 'Goat', description: 'Goats and caprine livestock' },
+      { name: 'Pig', description: 'Pigs and swine livestock' },
+      { name: 'Poultry', description: 'Chickens and other poultry' },
+    ],
+    skipDuplicates: true,
   });
 }
 
@@ -184,7 +200,9 @@ export default {
   getLivestockById,
   createLivestock,
   updateLivestock,
+  deleteLivestock,
   listLivestockSpecies,
+  ensureDefaultLivestockSpecies,
   createLivestockSpecies,
   listLivestockBreeds,
   createBreedingRecord,

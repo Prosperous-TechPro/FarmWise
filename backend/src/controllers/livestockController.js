@@ -5,6 +5,7 @@
 import {
   createLivestockBreedingService,
   createLivestockService,
+  deleteLivestockService,
   getLivestockDetailService,
   listFarmLivestockService,
   listLivestockBreedsService,
@@ -59,6 +60,11 @@ export async function updateLivestock(req, res) {
   });
 }
 
+export async function deleteLivestock(req, res) {
+  await deleteLivestockService(req.params.farmId, req.params.livestockId);
+  return res.status(204).send();
+}
+
 export async function listLivestockSpecies(req, res) {
   const data = await listLivestockSpeciesService();
   return res.status(200).json({
@@ -100,6 +106,7 @@ export default {
   createLivestock,
   getLivestock,
   updateLivestock,
+  deleteLivestock,
   listLivestockSpecies,
   listLivestockBreeds,
   createBreedingRecord,

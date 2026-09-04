@@ -6,6 +6,7 @@ import express from 'express';
 import {
   listFarmExpenses,
   createExpense,
+  deleteExpense,
   listFarmSales,
   createSale,
   listFarmLosses,
@@ -21,11 +22,12 @@ const router = express.Router();
 
 router.use(authenticate, authorize);
 
-router.get('/farms/:farmId/expenses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmExpenses));
-router.post('/farms/:farmId/expenses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createExpense));
+router.get('/farms/:farmId/expenses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(listFarmExpenses));
+router.post('/farms/:farmId/expenses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(createExpense));
+router.delete('/farms/:farmId/expenses/:expenseId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(deleteExpense));
 
-router.get('/farms/:farmId/sales', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmSales));
-router.post('/farms/:farmId/sales', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createSale));
+router.get('/farms/:farmId/sales', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(listFarmSales));
+router.post('/farms/:farmId/sales', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(createSale));
 
 router.get('/farms/:farmId/losses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmLosses));
 router.post('/farms/:farmId/losses', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createFinancialLoss));
@@ -33,6 +35,6 @@ router.post('/farms/:farmId/losses', requireFarmAccess, requireFarmRole(['OWNER'
 router.get('/farms/:farmId/budgets', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listFarmBudgets));
 router.post('/farms/:farmId/budgets', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createBudget));
 
-router.get('/farms/:farmId/profitability', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(getFarmProfitability));
+router.get('/farms/:farmId/profitability', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(getFarmProfitability));
 
 export default router;

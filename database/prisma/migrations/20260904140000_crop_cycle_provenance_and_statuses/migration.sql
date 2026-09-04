@@ -1,0 +1,12 @@
+ALTER TYPE "CropCycleStatus" ADD VALUE IF NOT EXISTS 'HARVESTED';
+ALTER TYPE "CropCycleStatus" ADD VALUE IF NOT EXISTS 'ARCHIVED';
+
+ALTER TABLE "CropCycle"
+  ADD COLUMN IF NOT EXISTS "createdBy" TEXT;
+
+CREATE INDEX IF NOT EXISTS "CropCycle_createdBy_idx" ON "CropCycle"("createdBy");
+
+ALTER TABLE "CropCycle"
+  ADD CONSTRAINT "CropCycle_createdBy_fkey"
+  FOREIGN KEY ("createdBy") REFERENCES "User"("id")
+  ON DELETE SET NULL ON UPDATE CASCADE;

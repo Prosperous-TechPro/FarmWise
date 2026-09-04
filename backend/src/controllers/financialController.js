@@ -5,6 +5,7 @@
 import {
   createBudgetService,
   createExpenseService,
+  deleteExpenseService,
   createFinancialLossService,
   createSaleService,
   getFarmProfitabilityService,
@@ -28,6 +29,11 @@ export async function listFarmExpenses(req, res) {
 export async function createExpense(req, res) {
   const expense = await createExpenseService(req.params.farmId, req.user.id, req.body);
   return res.status(201).json({ success: true, data: expense, message: 'Expense created successfully' });
+}
+
+export async function deleteExpense(req, res) {
+  await deleteExpenseService(req.params.farmId, req.params.expenseId);
+  return res.status(204).send();
 }
 
 export async function listFarmSales(req, res) {
@@ -83,6 +89,7 @@ export async function getFarmProfitability(req, res) {
 export default {
   listFarmExpenses,
   createExpense,
+  deleteExpense,
   listFarmSales,
   createSale,
   listFarmLosses,

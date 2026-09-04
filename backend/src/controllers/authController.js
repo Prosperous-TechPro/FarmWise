@@ -26,7 +26,7 @@ import {
   completePendingRegistration,
 } from '../services/authService.js';
 import { generateAndSendOtp, verifyOtp, resendOtp } from '../services/otpService.js';
-import { findUserById, findUserByPhone, updateUser } from '../repositories/userRepository.js';
+import { findUserByEmail, findUserById, findUserByPhone, updateUser } from '../repositories/userRepository.js';
 import logger from '../utils/logger.js';
 import { findPendingRegistrationById } from '../repositories/pendingRegistrationRepository.js';
 
@@ -219,6 +219,32 @@ export async function verifyOtpEndpoint(req, res) {
       message: 'OTP verification failed',
       errors: { otp: error.message },
     });
+  }
+}
+
+export async function forgotPasswordEndpoint(req, res) {
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!email) return res.status(400).json({ success: false, message: 'Email address is required', errors: { email: 'Email address is required' } });
+
+    const user = await findUserByEmail(email);
+    if (user) {
+      await generateAndSendOtp({
+        userId: user.id,
+        purpose: 'PASSWORD_RESET',
+        channel: 'EMAIL',
+        destination: user.email,
+        emailProvider: req.app.get('emailProvider'),
+        smsProvider: req.app.get('smsProvider'),
+        expiryMinutes: parseInt(process.env.OTP_EXPIRY_MINUTES) || 10,
+        length: parseInt(process.env.OTP_LENGTH) || 6,
+      });
+    }
+
+    return res.status(200).json({ success: true, message: 'If an account exists for that email, a password reset code has been sent.' });
+  } catch (error) {
+    logger.error('Forgot password error', { error: error.message });
+    return res.status(200).json({ success: true, message: 'If an account exists for that email, a password reset code has been sent.' });
   }
 }
 
@@ -563,15 +589,18 @@ export async function changePasswordEndpoint(req, res) {
  */
 export async function resetPasswordEndpoint(req, res) {
   try {
-    const { userId, newPassword, confirmPassword } = req.body;
+    const { email, code, channel = 'EMAIL', newPassword, confirmPassword } = req.body;
+    const user = typeof email === 'string' ? await findUserByEmail(email.trim().toLowerCase()) : null;
 
-    if (!userId) {
+    if (!user || !code) {
       return res.status(400).json({
         success: false,
-        message: 'User ID is required',
-        errors: { userId: 'User ID must be provided' },
+        message: 'Email and reset code are required',
+        errors: { email: 'A valid email and reset code must be provided', code: 'Reset code is required' },
       });
     }
+
+    await verifyOtp({ userId: user.id, purpose: 'PASSWORD_RESET', channel, code });
 
     // Validate input
     const validation = validatePasswordReset({
@@ -589,7 +618,7 @@ export async function resetPasswordEndpoint(req, res) {
 
     // Reset password
     const result = await resetPassword({
-      userId,
+      userId: user.id,
       newPassword,
     });
 
@@ -599,7 +628,7 @@ export async function resetPasswordEndpoint(req, res) {
     });
   } catch (error) {
     logger.error(`Password reset error`, {
-      userId: req.body.userId,
+      email: req.body.email,
       error: error.message,
     });
 

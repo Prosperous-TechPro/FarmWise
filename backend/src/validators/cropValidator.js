@@ -4,9 +4,11 @@ const CROP_CYCLE_STATUS_VALUES = [
   'PLANTED',
   'GROWING',
   'HARVESTING',
+  'HARVESTED',
   'COMPLETED',
   'ABANDONED',
   'CANCELLED',
+  'ARCHIVED',
 ];
 
 const CROP_ACTIVITY_TYPES = [
@@ -132,6 +134,14 @@ export function validateCreateCropCycle(data = {}) {
   if (data.actualHarvestDate !== undefined && data.actualHarvestDate !== null && data.actualHarvestDate !== '') {
     const actualDate = validateDateString(data.actualHarvestDate, 'actualHarvestDate', errors, true);
     if (actualDate) normalizedData.actualHarvestDate = actualDate;
+  }
+
+  if (normalizedData.expectedHarvestDate && normalizedData.plantingDate && normalizedData.expectedHarvestDate < normalizedData.plantingDate) {
+    errors.expectedHarvestDate = 'Expected harvest date cannot be before planting date';
+  }
+
+  if (normalizedData.actualHarvestDate && normalizedData.plantingDate && normalizedData.actualHarvestDate < normalizedData.plantingDate) {
+    errors.actualHarvestDate = 'Actual harvest date cannot be before planting date';
   }
 
   if (data.notes !== undefined && typeof data.notes !== 'string') {

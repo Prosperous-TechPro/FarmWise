@@ -21,7 +21,7 @@ export async function getFinancialAggregate(farmIds, dates = {}) {
 
 export async function getFarmOperationalAggregate(farmId, dates = {}) {
   const productionRange = range('productionDate', dates.dateFrom, dates.dateTo);
-  const [financial, production, productionByUnit, crops, livestock, tasks, alerts, inventory] = await Promise.all([
+  const [financial, production, productionByUnit, crops, livestock, tasks, alerts, inventory, workers] = await Promise.all([
     getFinancialAggregate([farmId], dates),
     prisma.productionRecord.aggregate({ where: { farmId, ...productionRange }, _sum: { quantity: true }, _count: { id: true } }),
     prisma.productionRecord.groupBy({ by: ['product', 'quantityUnit'], where: { farmId, ...productionRange }, _sum: { quantity: true }, _count: { id: true } }),
@@ -30,10 +30,11 @@ export async function getFarmOperationalAggregate(farmId, dates = {}) {
     prisma.farmActivityTask.groupBy({ by: ['status'], where: { activity: { farmId }, ...range('dueDate', dates.dateFrom, dates.dateTo) }, _count: { id: true } }),
     prisma.farmAlert.groupBy({ by: ['status', 'severity'], where: { farmId }, _count: { id: true } }),
     prisma.inventoryStockBalance.groupBy({ by: ['stockStatus'], where: { farmId }, _sum: { currentQuantity: true }, _count: { id: true } }),
+    prisma.farmMember.count({ where: { farmId, status: 'ACTIVE', role: { not: 'OWNER' } } }),
   ]);
   const byUnit = productionByUnit.map((row) => ({ product: row.product, unit: row.quantityUnit, quantity: Number(row._sum.quantity ?? 0), records: row._count.id }));
   const totalsByUnit = Object.fromEntries(byUnit.reduce((totals, row) => totals.set(row.unit, (totals.get(row.unit) || 0) + row.quantity), new Map()));
-  return { financial, production: { recordCount: production._count.id, totalsByUnit, byUnit }, crops, livestock, tasks, alerts, inventory };
+  return { financial, production: { recordCount: production._count.id, totalsByUnit, byUnit }, crops, livestock, tasks, alerts, inventory, workers: { active: workers } };
 }
 
 export async function getExpenseBreakdown(farmIds, dates = {}, category) {

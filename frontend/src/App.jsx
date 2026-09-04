@@ -2,11 +2,16 @@ import React, { useEffect, useRef, useState } from 'react';
 import ErrorBoundary from './components/ErrorBoundary';
 import apiClient from './services/api';
 import DashboardLayout from './components/layout/DashboardLayout';
+import ActivityRecords from './components/ActivityRecords';
+import LivestockRecords from './components/LivestockRecords';
+import FinanceRecords from './components/FinanceRecords';
+import InventoryRecords from './components/InventoryRecords';
 import './App.css';
 
 const TOKEN_KEY = 'farmwise.accessToken';
 const WORKSPACE_CACHE_KEY = 'farmwise.workspace';
 const PENDING_REGISTRATION_KEY = 'farmwise.pendingRegistration';
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 function navigate(path) {
   window.history.pushState({}, '', path);
@@ -41,6 +46,9 @@ function AppContent() {
   const [view, setView] = useState('dashboard');
   const [overview, setOverview] = useState(null);
   const [farms, setFarms] = useState([]);
+  const [selectedFarmId, setSelectedFarmId] = useState('');
+  const [farmDashboard, setFarmDashboard] = useState(null);
+  const [farmDashboardError, setFarmDashboardError] = useState('');
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(false);
   const workspaceRequestRef = useRef(0);
@@ -54,10 +62,33 @@ function AppContent() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
+  useEffect(() => {
+    if (!token) return undefined;
+    let timeout;
+    const signOutForInactivity = () => {
+      signOut();
+    };
+    const resetTimer = () => {
+      window.clearTimeout(timeout);
+      timeout = window.setTimeout(signOutForInactivity, INACTIVITY_TIMEOUT_MS);
+    };
+    const events = ['pointerdown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    events.forEach((eventName) => window.addEventListener(eventName, resetTimer, { passive: true }));
+    resetTimer();
+    return () => {
+      window.clearTimeout(timeout);
+      events.forEach((eventName) => window.removeEventListener(eventName, resetTimer));
+    };
+  }, [token]);
+
   const signOut = async () => {
-    try { if (token) await apiClient.post('/auth/logout', {}); } catch { /* local sign-out still completes */ }
+    try {
+      const sessionId = localStorage.getItem('farmwise.sessionId');
+      if (token && sessionId) await apiClient.post('/auth/logout', { sessionId });
+    } catch { /* local sign-out still completes */ }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('farmwise.refreshToken');
+    localStorage.removeItem('farmwise.sessionId');
     localStorage.removeItem('farmwise.user');
     sessionStorage.removeItem(WORKSPACE_CACHE_KEY);
     apiClient.setAuthToken(null);
@@ -119,12 +150,33 @@ function AppContent() {
     }
   }, [token, view]);
 
+  useEffect(() => {
+    if (!farms.length) {
+      setSelectedFarmId('');
+      setFarmDashboard(null);
+      return;
+    }
+    if (!selectedFarmId || !farms.some((farm) => farm.id === selectedFarmId)) setSelectedFarmId(farms[0].id);
+  }, [farms, selectedFarmId]);
+
+  useEffect(() => {
+    if (!token || isSystemAdmin || view !== 'dashboard' || !selectedFarmId) return undefined;
+    let active = true;
+    setFarmDashboardError('');
+    apiClient.get(`/farms/${selectedFarmId}/dashboard`, { timeout: 20000 })
+      .then((result) => { if (active) setFarmDashboard(result.data || null); })
+      .catch((error) => { if (active) setFarmDashboardError(error.message || 'Unable to load farm dashboard.'); });
+    return () => { active = false; };
+  }, [token, isSystemAdmin, view, selectedFarmId]);
+
   if (!token) {
     if (pathname === '/register') return <Register onNavigate={navigate} />;
     if (pathname === '/verify-otp') return <VerifyOtp onNavigate={navigate} />;
+    if (pathname === '/forgot-password') return <ForgotPassword onNavigate={navigate} />;
     return <Login onLogin={(session) => {
     localStorage.setItem(TOKEN_KEY, session.accessToken);
     localStorage.setItem('farmwise.refreshToken', session.refreshToken || '');
+    localStorage.setItem('farmwise.sessionId', session.sessionId || '');
     localStorage.setItem('farmwise.user', JSON.stringify(session.user));
     apiClient.setAuthToken(session.accessToken); setUser(session.user); setToken(session.accessToken);
     }} onRegister={() => navigate('/register')} />;
@@ -133,16 +185,15 @@ function AppContent() {
   const firstName = user?.firstName || user?.first_name || 'Farmer';
   return (
     <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)}>
-        {view === 'dashboard' && <Dashboard overview={overview} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />}
+        {view === 'dashboard' && <Dashboard overview={overview} farmDashboard={farmDashboard} farmDashboardError={farmDashboardError} selectedFarmId={selectedFarmId} onFarmChange={setSelectedFarmId} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />}
         {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { setFarms([...farms, farm]); setNotice('Farm created successfully.'); }} onUpdated={(farm) => { setFarms(farms.map((item) => item.id === farm.id ? farm : item)); setNotice('Farm updated successfully.'); }} onDeleted={(farmId) => { setFarms(farms.filter((item) => item.id !== farmId)); setNotice('Farm deleted successfully.'); }} />}
-        {view === 'records' && <Records farms={farms} />}
+        {view === 'records' && <Records farms={farms} isSystemAdmin={isSystemAdmin} />}
         {view === 'projects' && <Projects farms={farms} />}
         {view === 'community' && <CommunityFeed user={user} />}
         {view === 'notifications' && <Notifications />}
         {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice('Profile updated successfully.'); }} />}
         {view === 'users' && <UserManagement isSuperAdmin={isSuperAdmin} />}
         {view === 'admin-farms' && <AdminFarmManagement />}
-        {view === 'activities' && <AdminActivityManagement />}
         {view === 'workers' && <WorkerManagement farms={farms} />}
         {view === 'analytics' && <Analytics overview={overview} />}
     </DashboardLayout>
@@ -155,7 +206,14 @@ function Login({ onLogin, onRegister }) {
   const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); try {
     const result = await apiClient.post('/auth/login', { email, password }); onLogin(result.data);
   } catch (err) { setError(err.message || 'Sign in failed. Check your details.'); } finally { setBusy(false); } };
-  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div><form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot">New farm owner? <button type="button" className="text-button" onClick={onRegister}>Create an account</button></p></form></div>;
+  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div><form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot"><button type="button" className="text-button" onClick={() => navigate('/forgot-password')}>Forgot password?</button></p><p className="form-foot">New farm owner? <button type="button" className="text-button" onClick={onRegister}>Create an account</button></p></form></div>;
+}
+
+function ForgotPassword({ onNavigate }) {
+  const [email, setEmail] = useState(''); const [code, setCode] = useState(''); const [newPassword, setNewPassword] = useState(''); const [confirmPassword, setConfirmPassword] = useState(''); const [sent, setSent] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState(''); const [success, setSuccess] = useState('');
+  const requestCode = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { const result = await apiClient.post('/auth/forgot-password', { email }); setSent(true); setSuccess(result.message || 'Check your email for a reset code.'); } catch (err) { setError(err.message || 'Unable to request a reset code.'); } finally { setBusy(false); } };
+  const reset = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { const result = await apiClient.post('/auth/reset-password', { email, code, channel: 'EMAIL', newPassword, confirmPassword }); setSuccess(result.message || 'Password reset. You can sign in now.'); setTimeout(() => onNavigate('/'), 900); } catch (err) { setError(err.message || 'Unable to reset password.'); } finally { setBusy(false); } };
+  return <form className="auth-form register-form" onSubmit={sent ? reset : requestCode}><button type="button" className="back-button" onClick={() => onNavigate('/')}>← Back to sign in</button><p className="eyebrow">ACCOUNT RECOVERY</p><h2>Reset your password</h2><p className="muted">We will send a one-time code to your email.</p>{error && <div className="notice error">{error}</div>}{success && <div className="notice success">{success}</div>}<label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label>{sent && <><label>Reset code<input inputMode="numeric" pattern="[0-9]{6}" maxLength="6" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} required /></label><label>New password<PasswordInput value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" /></label><label>Confirm password<PasswordInput value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" /></label></>}<button className="primary-button" disabled={busy}>{busy ? 'Working...' : sent ? 'Reset password' : 'Send reset code'} <span>→</span></button></form>;
 }
 
 function maskDestination(destination, channel) {
@@ -200,13 +258,25 @@ function PasswordInput({ value, onChange, autoComplete }) {
   return <span className="password-field"><input type={visible ? 'text' : 'password'} value={value} onChange={onChange} required autoComplete={autoComplete} /><button type="button" className="password-toggle" onClick={() => setVisible(!visible)} aria-label={visible ? 'Hide password' : 'Show password'} title={visible ? 'Hide password' : 'Show password'}>{visible ? 'Hide' : 'Show'}</button></span>;
 }
 
-function Dashboard({ overview, farms, loading, onViewFarms, isSystemAdmin, onViewChange }) {
+function countDashboardRows(rows, statuses = []) {
+  const values = Array.isArray(rows) ? rows : [];
+  return values.filter((row) => !statuses.length || statuses.includes(row.status)).reduce((sum, row) => sum + Number(row._count?.id || row.count || 0), 0);
+}
+
+function Dashboard({ overview, farmDashboard, farmDashboardError, selectedFarmId, onFarmChange, farms, loading, onViewFarms, isSystemAdmin, onViewChange }) {
   const stats = overview?.summary || overview || {};
   const adminSummary = overview?.adminSummary || {};
   const systemSummary = adminSummary.totalUsers ? adminSummary : null;
+  const selectedFarm = farms.find((farm) => farm.id === selectedFarmId);
+  const activeCrops = farmDashboard?.crops?.activeCycles ?? countDashboardRows(farmDashboard?.crops, ['PLANNED', 'PLANTED', 'GROWING', 'HARVESTING']);
+  const activeLivestock = farmDashboard?.livestock?.totalAnimals ?? countDashboardRows(farmDashboard?.livestock, ['ACTIVE']);
+  const inventoryItems = farmDashboard?.inventory?.totalItems;
+  const workers = farmDashboard?.workers?.active;
 
   return <>
     <section className="hero-band"><div><p className="eyebrow">{isSystemAdmin ? 'SYSTEM-WIDE OVERVIEW' : 'OPERATIONS OVERVIEW'}</p><h2>{isSystemAdmin ? 'Manage the full FarmWise network.' : 'Keep the important things growing.'}</h2><p className="muted">{isSystemAdmin ? 'Monitor user health, farm performance, revenue, and alerts across the platform.' : 'A live view of your farms, people, and production.'}</p></div><button className="outline-button" onClick={onViewFarms}>{isSystemAdmin ? 'Open admin dashboard' : 'Manage farms'} <span>↗</span></button></section>
+    {!isSystemAdmin && farms.length > 0 && <div className="record-content-panel"><label>Current farm<select value={selectedFarmId} onChange={(event) => onFarmChange(event.target.value)}>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select></label><span className="muted">{selectedFarm?.status || 'ACTIVE'}</span></div>}
+    {farmDashboardError && <div className="notice error">{farmDashboardError}</div>}
     {loading && !overview && !farms.length && <div className="dashboard-skeleton" aria-label="Loading dashboard"><span /><span /><span /><span /></div>}
     <section className={`stat-grid${loading && !overview && !farms.length ? ' is-loading' : ''}`}>
       {isSystemAdmin && systemSummary ? (
@@ -215,17 +285,32 @@ function Dashboard({ overview, farms, loading, onViewFarms, isSystemAdmin, onVie
           <Stat label="Active farms" value={systemSummary.totalFarms || 0} detail="Operational farms" tone="yellow" onClick={onViewFarms} />
           <Stat label="Workers" value={systemSummary.totalWorkers || 0} detail="Assigned workforce" tone="blue" onClick={() => onViewChange?.('workers')} />
           <Stat label="Net profit" value={`GHS ${Number(systemSummary.netProfit || 0).toLocaleString()}`} detail="System-wide result" tone="red" onClick={() => onViewChange?.('analytics')} />
+          <Stat label="Active users" value={systemSummary.activeUsers || 0} detail={`${systemSummary.inactiveUsers || 0} inactive`} tone="green" onClick={() => onViewChange?.('users')} />
+          <Stat label="Crop cycles" value={systemSummary.totalCrops || 0} detail="Production records" tone="yellow" onClick={() => onViewChange?.('records')} />
+          <Stat label="Livestock" value={systemSummary.totalLivestock || 0} detail="Registered animals" tone="blue" onClick={() => onViewChange?.('records')} />
+          <Stat label="Pending reports" value={systemSummary.pendingReports || 0} detail={`${systemSummary.totalReports || 0} total reports`} tone="red" onClick={() => onViewChange?.('notifications')} />
+        </>
+      ) : farmDashboard ? (
+        <>
+          <Stat label="Active farms" value={stats.activeFarms ?? farms.length ?? 0} detail={`${stats.totalFarms || farms.length || 0} connected farms`} tone="green" onClick={onViewFarms} />
+          <Stat label="Active workers" value={workers ?? '—'} detail="Assigned to this farm" tone="blue" onClick={() => onViewChange?.('workers')} />
+          <Stat label="Active crop cycles" value={activeCrops} detail="Current production" tone="yellow" onClick={() => onViewChange?.('records')} />
+          <Stat label="Livestock" value={activeLivestock} detail="Recorded animals" tone="green" onClick={() => onViewChange?.('records')} />
+          <Stat label="Inventory items" value={inventoryItems ?? '—'} detail={inventoryItems === undefined ? 'Module data unavailable' : 'Active stock items'} tone="blue" onClick={() => onViewChange?.('records')} />
+          <Stat label="Revenue" value={farmDashboard.financial ? `GHS ${Number(farmDashboard.financial.revenue || 0).toLocaleString()}` : '—'} detail={farmDashboard.financial ? 'Authoritative sales' : 'Financial summary unavailable'} tone="green" />
+          <Stat label="Expenses" value={farmDashboard.financial ? `GHS ${Number(farmDashboard.financial.expenses || 0).toLocaleString()}` : '—'} detail={farmDashboard.financial ? 'Authoritative transactions' : 'Financial summary unavailable'} tone="red" />
+          <Stat label="Profit / loss" value={farmDashboard.financial ? `GHS ${Number(farmDashboard.financial.netProfit || 0).toLocaleString()}` : '—'} detail={farmDashboard.financial?.status || 'Incomplete financial data'} tone="yellow" onClick={() => onViewChange?.('records')} />
         </>
       ) : (
         <>
-          <Stat label="Active farms" value={farms.length || stats.farmCount || 0} detail="Connected to your account" tone="green" onClick={onViewFarms} />
-          <Stat label="Livestock" value={stats.livestockCount || stats.totalLivestock || '—'} detail="Across all farms" tone="yellow" onClick={() => onViewChange?.('records')} />
-          <Stat label="Production" value={stats.productionCount || stats.totalProduction || '—'} detail="Records this season" tone="blue" onClick={() => onViewChange?.('records')} />
-          <Stat label="Open alerts" value={stats.alertCount || stats.activeAlerts || '—'} detail="Needs your attention" tone="red" onClick={() => onViewChange?.('notifications')} />
+          <Stat label="Active farms" value={stats.activeFarms ?? farms.length ?? 0} detail={`${stats.totalFarms || farms.length || 0} connected farms`} tone="green" onClick={onViewFarms} />
+          <Stat label="Net profit" value={stats.financial ? `GHS ${Number(stats.financial.netProfit || 0).toLocaleString()}` : '—'} detail={stats.financial ? `${Number(stats.financial.revenue || 0).toLocaleString()} revenue` : 'Financial summary unavailable'} tone="yellow" onClick={() => onViewChange?.('records')} />
+          <Stat label="Active tasks" value={stats.activeTasks ?? 0} detail="Work still in progress" tone="blue" onClick={() => onViewChange?.('records')} />
+          <Stat label="Open alerts" value={stats.activeAlerts ?? 0} detail="Needs your attention" tone="red" onClick={() => onViewChange?.('notifications')} />
         </>
       )}
     </section>
-    <section className="content-grid"><div className="panel"><div className="panel-heading"><div><p className="eyebrow">{isSystemAdmin ? 'SYSTEM METRICS' : 'YOUR FARMS'}</p><h3>{isSystemAdmin ? 'Admin overview' : 'Farm portfolio'}</h3></div><button className="text-button" onClick={onViewFarms}>{isSystemAdmin ? 'View network ↗' : 'View all ↗'}</button></div>{farms.length ? farms.slice(0, 4).map((farm) => <div className="farm-row" key={farm.id}><span className="farm-avatar">{(farm.name || 'F')[0]}</span><div><strong>{farm.name}</strong><small>{farm.location || farm.address || 'Location not set'}</small></div><span className="row-arrow">→</span></div>) : <Empty text={isSystemAdmin ? 'No farm records available yet.' : 'Create your first farm to start tracking operations.'} onClick={onViewFarms} />}</div><div className="panel pulse"><p className="eyebrow">{isSystemAdmin ? 'ADMIN COMMANDS' : 'QUICK START'}</p><h3>{isSystemAdmin ? 'Operations at a glance' : 'Build your farm picture'}</h3><p className="muted">{isSystemAdmin ? 'Review overall performance, user activity, and system health from one screen.' : 'Add farms and fields first, then layer in crops, livestock, and costs as the season unfolds.'}</p><button className="primary-button compact" onClick={onViewFarms}>{isSystemAdmin ? 'Open admin controls' : 'Open farm manager'} <span>→</span></button></div></section>
+    <section className="content-grid"><div className="panel"><div className="panel-heading"><div><p className="eyebrow">{isSystemAdmin ? 'SYSTEM METRICS' : 'YOUR FARMS'}</p><h3>{isSystemAdmin ? 'Admin overview' : 'Farm portfolio'}</h3></div><button className="text-button" onClick={onViewFarms}>{isSystemAdmin ? 'View network ↗' : 'View all ↗'}</button></div>{farms.length ? farms.slice(0, 4).map((farm) => <div className="farm-row" key={farm.id}><span className="farm-avatar">{(farm.name || 'F')[0]}</span><div><strong>{farm.name}</strong><small>{farm.location || farm.address || 'Location not set'}</small></div><span className="row-arrow">→</span></div>) : <Empty text={isSystemAdmin ? 'No farm records available yet.' : 'Create your first farm to start tracking operations.'} onClick={onViewFarms} />}</div><div className="panel pulse"><p className="eyebrow">{isSystemAdmin ? 'ADMIN COMMANDS' : 'QUICK ACTIONS'}</p><h3>{isSystemAdmin ? 'Operations at a glance' : 'Keep the season moving'}</h3><p className="muted">{isSystemAdmin ? 'Review overall performance, user activity, and system health from one screen.' : 'Jump straight into the records that need attention today.'}</p>{isSystemAdmin ? <button className="primary-button compact" onClick={onViewFarms}>Open admin controls <span>→</span></button> : <div className="quick-actions"><button className="text-button" onClick={() => onViewChange?.('records')}>Open records →</button><button className="text-button" onClick={() => onViewChange?.('farms')}>Manage farms →</button></div>}</div></section>
   </>;
 }
 
@@ -241,7 +326,7 @@ function Farms({ farms, onCreated, onUpdated, onDeleted }) {
   return <section><div className="section-heading"><div><p className="eyebrow">PORTFOLIO</p><h2>My farms</h2><p className="muted">Keep each operation organized in one place.</p></div><button className="primary-button" onClick={() => { setEditingFarm(null); setOpen(!open); }}>+ Add farm</button></div>{(open || editingFarm) && <form className="create-form" onSubmit={editingFarm ? update : create}>{error && <div className="notice error">{error}</div>}<label>Farm name<input value={name} onChange={(e) => setName(e.target.value)} required placeholder="e.g. Green Valley Farm" /></label><label>Location<input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Town or region" /></label><button className="primary-button" disabled={busy}>{busy ? 'Saving...' : editingFarm ? 'Update farm' : 'Create farm'}</button></form>}<div className="farm-grid">{farms.map((farm) => <article className="farm-card" key={farm.id}><div className="farm-card-top"><span className="farm-avatar large">{(farm.name || 'F')[0]}</span><span className="live-badge">{farm.status || 'ACTIVE'}</span></div><h3>{farm.name}</h3><p>{farm.region || farm.location || farm.address || 'Location not set'}</p><div className="farm-card-foot"><button className="text-button" type="button" onClick={() => { setEditingFarm(farm); setOpen(false); setName(farm.name); setLocation(farm.region || ''); setError(''); }}>Edit</button><button className="text-button" type="button" onClick={() => remove(farm)} disabled={busy}>Delete</button></div></article>)}{!farms.length && <div className="panel empty-wide"><h3>No farms yet</h3><p className="muted">Create a farm to unlock fields, livestock, crop cycles, and financial records.</p></div>}</div></section>;
 }
 
-function Records({ farms }) {
+function Records({ farms, isSystemAdmin = false }) {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [selectedFarmId, setSelectedFarmId] = useState(farms[0]?.id || ''); const [dateFrom, setDateFrom] = useState(''); const [dateTo, setDateTo] = useState(''); const [summary, setSummary] = useState(null); const [summaryLoading, setSummaryLoading] = useState(false); const [summaryError, setSummaryError] = useState('');
   const items = [
@@ -257,6 +342,11 @@ function Records({ farms }) {
   useEffect(() => { if (!selectedFarmId) { setSummary(null); return; } setSummaryLoading(true); setSummaryError(''); const params = new URLSearchParams({ farmId: selectedFarmId }); if (dateFrom) params.set('dateFrom', dateFrom); if (dateTo) params.set('dateTo', dateTo); apiClient.get(`/reports/summary?${params}`).then((result) => setSummary(result.data)).catch((err) => setSummaryError(err.message || 'Unable to load records summary.')).finally(() => setSummaryLoading(false)); }, [selectedFarmId, dateFrom, dateTo]);
 
   if (selectedRecord === 'Fields') return <FieldManagement farms={farms} onBack={() => setSelectedRecord(null)} />;
+  if (selectedRecord === 'Crops') return <CropManagement farms={farms} onBack={() => setSelectedRecord(null)} />;
+  if (selectedRecord === 'Activities') return <ActivityRecords farms={farms} isSystemAdmin={isSystemAdmin} onBack={() => setSelectedRecord(null)} />;
+  if (selectedRecord === 'Livestock') return <LivestockRecords farms={farms} onBack={() => setSelectedRecord(null)} />;
+  if (selectedRecord === 'Finance') return <FinanceRecords farms={farms} onBack={() => setSelectedRecord(null)} />;
+  if (selectedRecord === 'Inventory') return <InventoryRecords farms={farms} onBack={() => setSelectedRecord(null)} />;
 
   if (selected) {
     return <section className="record-page">
@@ -268,6 +358,93 @@ function Records({ farms }) {
 
   const financial = summary?.financial || {}; const production = summary?.production || {};
   return <section><div className="section-heading"><div><p className="eyebrow">OPERATIONS</p><h2>Records</h2><p className="muted">The working layers behind every farm decision.</p></div><span className="record-count">{farms.length} farm{farms.length === 1 ? '' : 's'} connected</span></div>{farms.length > 0 && <div className="record-content-panel"><div><label>Farm<select value={selectedFarmId} onChange={(event) => setSelectedFarmId(event.target.value)}>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select></label></div><label>From<input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label><label>To<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label></div>}{summaryError && <div className="notice error">{summaryError}</div>}{summaryLoading ? <div className="loading-line" aria-label="Loading records summary" /> : summary && <div className="stat-grid records-summary"><Stat label="Total revenue" value={`GHS ${Number(financial.revenue || 0).toLocaleString()}`} detail={`${financial.sales || 0} sales`} tone="green" /><Stat label="Total expenses" value={`GHS ${Number(financial.expenses || 0).toLocaleString()}`} detail={`${financial.expenseCount || 0} expenses`} tone="red" /><Stat label="Net profit/loss" value={`GHS ${Number((financial.revenue || 0) - (financial.expenses || 0) - (financial.losses || 0)).toLocaleString()}`} detail={`${financial.losses || 0} losses`} tone="blue" /><Stat label="Production" value={Number(production.recordCount || 0).toLocaleString()} detail="Stored production records" tone="yellow" /></div>}<div className="record-grid">{items.map(([title, text, icon]) => <button className="record-card" type="button" key={title} onClick={() => setSelectedRecord(title)}><span className={`record-icon ${icon}`} /><h3>{title}</h3><p>{text}</p><span className="record-open">Open records <span aria-hidden="true">→</span></span></button>)}</div></section>;
+}
+
+function CropManagement({ farms, onBack }) {
+  const [farmId, setFarmId] = useState(farms[0]?.id || '');
+  const [cycles, setCycles] = useState([]);
+  const [cropTypes, setCropTypes] = useState([]);
+  const [fields, setFields] = useState([]);
+  const [selectedCycle, setSelectedCycle] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [filters, setFilters] = useState({ search: '', status: '' });
+  const [form, setForm] = useState({ fieldId: '', cropId: '', varietyId: '', cycleName: '', area: '', areaUnit: 'HECTARE', plantingDate: '', expectedHarvestDate: '', notes: '' });
+
+  const loadCycles = async () => {
+    if (!farmId) return;
+    setLoading(true); setError('');
+    try {
+      const params = new URLSearchParams();
+      if (filters.search) params.set('search', filters.search);
+      if (filters.status) params.set('status', filters.status);
+      const result = await apiClient.get(`/farms/${farmId}/crops${params.toString() ? `?${params}` : ''}`);
+      setCycles(result.data || []);
+    } catch (err) { setError(err.message || 'Unable to load crop production records.'); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    if (!farmId) return;
+    setSelectedCycle(null);
+    Promise.all([
+      apiClient.get(`/farms/${farmId}/fields`),
+      apiClient.get('/crops'),
+    ]).then(([fieldResult, cropResult]) => {
+      setFields(fieldResult.data || []);
+      setCropTypes(cropResult.data || []);
+      setForm((current) => ({ ...current, fieldId: current.fieldId || fieldResult.data?.[0]?.id || '', cropId: current.cropId || cropResult.data?.[0]?.id || '' }));
+    }).catch((err) => setError(err.message || 'Unable to load crop options.'));
+    loadCycles();
+  }, [farmId, filters.search, filters.status]);
+
+  const update = (field) => (event) => setForm({ ...form, [field]: event.target.value });
+  const selectedCrop = cropTypes.find((crop) => crop.id === form.cropId);
+  const varieties = selectedCrop?.cropVarieties || [];
+
+  const save = async (event) => {
+    event.preventDefault(); setBusy(true); setError('');
+    try {
+      const payload = { ...form, area: Number(form.area), varietyId: form.varietyId || undefined, plantingDate: form.plantingDate || undefined, expectedHarvestDate: form.expectedHarvestDate || undefined };
+      const result = selectedCycle
+        ? await apiClient.put(`/farms/${farmId}/crops/${selectedCycle.id}`, payload)
+        : await apiClient.post(`/farms/${farmId}/crops`, payload);
+      setCycles(selectedCycle ? cycles.map((cycle) => cycle.id === selectedCycle.id ? result.data : cycle) : [result.data, ...cycles]);
+      setSelectedCycle(null); setShowForm(false);
+      setForm({ fieldId: fields[0]?.id || '', cropId: cropTypes[0]?.id || '', varietyId: '', cycleName: '', area: '', areaUnit: 'HECTARE', plantingDate: '', expectedHarvestDate: '', notes: '' });
+    } catch (err) { setError(err.message || 'Unable to save crop production record.'); }
+    finally { setBusy(false); }
+  };
+
+  const remove = async (cycle) => {
+    if (!window.confirm(`Delete ${cycle.cycleName || cycle.crop?.name || 'this crop cycle'}?`)) return;
+    setBusy(true); setError('');
+    try {
+      await apiClient.delete(`/farms/${farmId}/crops/${cycle.id}`);
+      setCycles(cycles.filter((item) => item.id !== cycle.id));
+      setSelectedCycle(null);
+    } catch (err) { setError(err.message || 'Unable to delete crop production record.'); }
+    finally { setBusy(false); }
+  };
+
+  const edit = (cycle) => {
+    setSelectedCycle(cycle); setShowForm(true);
+    setForm({ fieldId: cycle.fieldId, cropId: cycle.cropId, varietyId: cycle.varietyId || '', cycleName: cycle.cycleName || '', area: cycle.plantedArea || '', areaUnit: cycle.areaUnit || 'HECTARE', plantingDate: cycle.plantingDate?.slice(0, 10) || '', expectedHarvestDate: cycle.expectedHarvestDate?.slice(0, 10) || '', notes: cycle.notes || '' });
+  };
+
+  return <section className="record-page">
+    <button className="back-button" type="button" onClick={onBack}>← Back to records</button>
+    <div className="section-heading"><div><p className="eyebrow">CROP MANAGEMENT</p><h2>Crop production</h2><p className="muted">Track planting cycles without losing the farm context.</p></div><button className="primary-button" type="button" onClick={() => { setSelectedCycle(null); setShowForm(!showForm); }}>+ Add crop</button></div>
+    {!farms.length ? <div className="panel empty-wide"><h3>Create a farm first</h3></div> : <>
+      <div className="record-content-panel crop-toolbar"><label>Farm<select value={farmId} onChange={(event) => setFarmId(event.target.value)}>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select></label><label>Search<input value={filters.search} onChange={(event) => setFilters({ ...filters, search: event.target.value })} placeholder="Crop, variety, or cycle" /></label><label>Status<select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}><option value="">All statuses</option>{['PLANNED', 'PLANTED', 'GROWING', 'HARVESTING', 'HARVESTED', 'COMPLETED', 'CANCELLED', 'ARCHIVED'].map((status) => <option value={status} key={status}>{status}</option>)}</select></label></div>
+      {error && <div className="notice error">{error}</div>}
+      {showForm && <form className="create-form crop-form" onSubmit={save}><label>Crop type<select value={form.cropId} onChange={update('cropId')} required>{cropTypes.map((crop) => <option value={crop.id} key={crop.id}>{crop.name}</option>)}</select></label><label>Variety<select value={form.varietyId} onChange={update('varietyId')}><option value="">Select variety</option>{varieties.map((variety) => <option value={variety.id} key={variety.id}>{variety.name}</option>)}</select></label><label>Production name<input value={form.cycleName} onChange={update('cycleName')} placeholder="e.g. Main season maize" /></label><label>Field<select value={form.fieldId} onChange={update('fieldId')} required>{fields.map((field) => <option value={field.id} key={field.id}>{field.name}</option>)}</select></label><label>Area<input type="number" min="0.01" step="0.01" value={form.area} onChange={update('area')} required /></label><label>Area unit<select value={form.areaUnit} onChange={update('areaUnit')}><option value="HECTARE">Hectare</option><option value="ACRE">Acre</option><option value="SQUARE_METER">Square meter</option></select></label><label>Planting date<input type="date" value={form.plantingDate} onChange={update('plantingDate')} required /></label><label>Expected harvest<input type="date" value={form.expectedHarvestDate} onChange={update('expectedHarvestDate')} /></label><label>Notes<input value={form.notes} onChange={update('notes')} /></label><button className="primary-button" disabled={busy || !fields.length || !cropTypes.length}>{busy ? 'Saving...' : selectedCycle ? 'Update crop' : 'Create crop'}</button>{selectedCycle && <button className="text-button" type="button" onClick={() => { setSelectedCycle(null); setShowForm(false); }}>Cancel</button>}</form>}
+      {loading ? <div className="loading-line" aria-label="Loading crop records" /> : <div className="farm-grid">{cycles.map((cycle) => <article className="farm-card" key={cycle.id}><div className="farm-card-top"><span className="farm-avatar large">{(cycle.crop?.name || 'C')[0]}</span><span className="live-badge">{cycle.status}</span></div><h3>{cycle.cycleName || cycle.crop?.name || 'Crop cycle'}</h3><p>{cycle.crop?.name || 'Crop'}{cycle.variety?.name ? ` · ${cycle.variety.name}` : ''}</p><p>{cycle.plantedArea} {cycle.areaUnit} · {cycle.field?.name || 'Field not set'}</p><div className="farm-card-foot"><button className="text-button" type="button" onClick={() => setSelectedCycle(cycle)}>Details</button><button className="text-button" type="button" onClick={() => edit(cycle)}>Edit</button><button className="text-button" type="button" onClick={() => remove(cycle)} disabled={busy}>Delete</button></div></article>)}{!cycles.length && <div className="panel empty-wide"><h3>No crop cycles yet</h3><p className="muted">Add a production record after selecting a field and crop type.</p></div>}</div>}
+      {selectedCycle && !showForm && <div className="record-content-panel crop-detail"><div><p className="eyebrow">CROP DETAILS</p><h3>{selectedCycle.cycleName || selectedCycle.crop?.name}</h3><p className="muted">{selectedCycle.crop?.name} · {selectedCycle.variety?.name || 'Variety not recorded'}</p></div><div><p>Field: {selectedCycle.field?.name || 'Not set'}</p><p>Planting: {selectedCycle.plantingDate?.slice(0, 10) || 'Not recorded'}</p><p>Expected harvest: {selectedCycle.expectedHarvestDate?.slice(0, 10) || 'Not set'}</p><p>Area: {selectedCycle.plantedArea} {selectedCycle.areaUnit}</p><p>Status: {selectedCycle.status}</p></div></div>}
+    </>}
+  </section>;
 }
 
 function FieldManagement({ farms, onBack }) {
@@ -521,11 +698,12 @@ function Account({ user, onUpdated }) {
 }
 
 function UserManagement({ isSuperAdmin }) {
-  const [users, setUsers] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-  useEffect(() => { apiClient.get('/admin/users').then((result) => setUsers(result.data || [])).catch((err) => setError(err.message || 'Unable to load users.')).finally(() => setLoading(false)); }, []);
+  const [users, setUsers] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState(''); const [search, setSearch] = useState(''); const [status, setStatus] = useState(''); const [role, setRole] = useState('');
+  useEffect(() => { setLoading(true); const params = new URLSearchParams(); if (search.trim()) params.set('search', search.trim()); if (status) params.set('status', status); if (role) params.set('role', role); apiClient.get(`/admin/users${params.toString() ? `?${params}` : ''}`).then((result) => setUsers(result.data || [])).catch((err) => setError(err.message || 'Unable to load users.')).finally(() => setLoading(false)); }, [search, status, role]);
   const changeStatus = async (user, status) => { setError(''); try { const result = await apiClient.patch(`/admin/users/${user.id}/status`, { status }); setUsers(users.map((item) => item.id === user.id ? result.data : item)); } catch (err) { setError(err.message || 'Unable to update user.'); } };
   const changeAdmin = async (user, isAdmin) => { setError(''); try { await apiClient[isAdmin ? 'delete' : 'post'](`/admin/users/${user.id}/admin`, isAdmin ? undefined : {}); const result = await apiClient.get('/admin/users'); setUsers(result.data || []); } catch (err) { setError(err.message || 'Unable to update admin access.'); } };
-  return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>Registered users</h2><p className="muted">Review accounts and control access to the platform.</p></div><span className="record-count">{users.length} user{users.length === 1 ? '' : 's'}</span></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading users" /> : <div className="farm-grid">{users.map((u) => { const userRoles = u.userRoles || u.roles || []; const isAdmin = userRoles.some((r) => (r.role?.name || r.name) === 'ADMIN'); return <div className="farm-card" key={u.id}><div className="farm-card-top"><span className="farm-avatar large">{u.profilePictureUrl ? <img src={u.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : (u.firstName || 'U')[0]}</span><select value={u.status} onChange={(event) => changeStatus(u, event.target.value)} aria-label={`Status for ${u.email}`}><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_VERIFICATION">PENDING</option></select></div><h3>{u.firstName} {u.lastName}</h3><p>{u.email}</p><div className="farm-card-foot"><span>{userRoles.map(r => r.role?.name || r.name).join(', ') || 'User'}</span>{isSuperAdmin && <button className="text-button" type="button" onClick={() => changeAdmin(u, isAdmin)}>{isAdmin ? 'Remove admin' : 'Make admin'}</button>}</div></div>; })}{!users.length && <div className="panel empty-wide"><h3>No users found</h3><p className="muted">Users will appear here as they register.</p></div>}</div>}</section>;
+  const filters = <div className="record-content-panel"><label>Search<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, email, phone, or ID" /></label><label>Status<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">All statuses</option><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_VERIFICATION">PENDING</option></select></label><label>Role<select value={role} onChange={(event) => setRole(event.target.value)}><option value="">All roles</option><option value="ADMIN">ADMIN</option><option value="SUPERADMIN">SUPERADMIN</option><option value="FARM_OWNER">FARM_OWNER</option><option value="WORKER">WORKER</option></select></label></div>;
+  return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>Registered users</h2><p className="muted">Review accounts and control access to the platform.</p></div><span className="record-count">{users.length} user{users.length === 1 ? '' : 's'}</span></div>{filters}{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading users" /> : <div className="farm-grid">{users.map((u) => { const userRoles = u.userRoles || u.roles || []; const isAdmin = userRoles.some((r) => (r.role?.name || r.name) === 'ADMIN'); return <div className="farm-card" key={u.id}><div className="farm-card-top"><span className="farm-avatar large">{u.profilePictureUrl ? <img src={u.profilePictureUrl} alt="" style={{width:'100%', height:'100%', objectFit:'cover'}} /> : (u.firstName || 'U')[0]}</span><select value={u.status} onChange={(event) => changeStatus(u, event.target.value)} aria-label={`Status for ${u.email}`}><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="SUSPENDED">SUSPENDED</option><option value="PENDING_VERIFICATION">PENDING</option></select></div><h3>{u.firstName} {u.lastName}</h3><p>{u.email}</p><div className="farm-card-foot"><span>{userRoles.map(r => r.role?.name || r.name).join(', ') || 'User'}</span>{isSuperAdmin && <button className="text-button" type="button" onClick={() => changeAdmin(u, isAdmin)}>{isAdmin ? 'Remove admin' : 'Make admin'}</button>}</div></div>; })}{!users.length && <div className="panel empty-wide"><h3>No users found</h3><p className="muted">Users will appear here as they register.</p></div>}</div>}</section>;
 }
 
 function AdminFarmManagement() {
@@ -535,11 +713,15 @@ function AdminFarmManagement() {
   return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>All farms</h2><p className="muted">Monitor farm ownership, membership, and operating status.</p></div><span className="record-count">{farms.length} farm{farms.length === 1 ? '' : 's'}</span></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading farms" /> : <div className="farm-grid">{farms.map((farm) => <div className="farm-card" key={farm.id}><div className="farm-card-top"><span className="farm-avatar large">{(farm.name || 'F')[0]}</span><select value={farm.status} onChange={(event) => update(farm, { status: event.target.value })} aria-label={`Status for ${farm.name}`}><option value="ACTIVE">ACTIVE</option><option value="INACTIVE">INACTIVE</option><option value="ARCHIVED">ARCHIVED</option></select></div><h3>{farm.name}</h3><p>Owner: {farm.owner?.email || 'Unknown'}</p><div className="farm-card-foot"><span>{farm._count?.farmMembers || 0} members</span><span>{farm._count?.farmActivities || 0} activities</span></div></div>)}{!farms.length && <div className="panel empty-wide"><h3>No farms found</h3><p className="muted">Farms will appear here as owners create them.</p></div>}</div>}</section>;
 }
 
-function AdminActivityManagement() {
-  const [activities, setActivities] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+function AdminActivityManagement({ farms }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [activities, setActivities] = useState([]); const [selectedActivity, setSelectedActivity] = useState(null); const [loading, setLoading] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const [form, setForm] = useState({ farmId: farms[0]?.id || '', title: '', description: '', category: 'WEEDING', activityDate: today, scheduledDate: '', status: 'COMPLETED', priority: 'NORMAL', cost: '', notes: '' });
   useEffect(() => { apiClient.get('/admin/activities').then((result) => setActivities(result.data || [])).catch((err) => setError(err.message || 'Unable to load activities.')).finally(() => setLoading(false)); }, []);
+  useEffect(() => { if (!form.farmId && farms[0]?.id) setForm((current) => ({ ...current, farmId: farms[0].id })); }, [farms, form.farmId]);
   const update = async (activity, data) => { setError(''); try { const result = await apiClient.patch(`/admin/activities/${activity.id}`, data); setActivities(activities.map((item) => item.id === activity.id ? { ...item, ...result.data } : item)); } catch (err) { setError(err.message || 'Unable to update activity.'); } };
-  return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>Activities</h2><p className="muted">Review and update work recorded across every farm.</p></div><span className="record-count">{activities.length} recent</span></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading activities" /> : <div className="farm-grid">{activities.map((activity) => <div className="farm-card" key={activity.id}><div className="farm-card-top"><span className="farm-avatar large">{(activity.title || 'A')[0]}</span><select value={activity.status} onChange={(event) => update(activity, { status: event.target.value })} aria-label={`Status for ${activity.title}`}><option value="PLANNED">PLANNED</option><option value="IN_PROGRESS">IN PROGRESS</option><option value="COMPLETED">COMPLETED</option><option value="CANCELLED">CANCELLED</option><option value="OVERDUE">OVERDUE</option></select></div><h3>{activity.title}</h3><p>{activity.farm?.name || 'Unknown farm'} · {activity.category}</p><div className="farm-card-foot"><span>{activity.user?.firstName} {activity.user?.lastName}</span><select value={activity.priority} onChange={(event) => update(activity, { priority: event.target.value })} aria-label={`Priority for ${activity.title}`}><option value="LOW">LOW</option><option value="NORMAL">NORMAL</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option></select></div></div>)}{!activities.length && <div className="panel empty-wide"><h3>No activities found</h3><p className="muted">Farm activities will appear here as work is recorded.</p></div>}</div>}</section>;
+  const create = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { const result = await apiClient.post(`/farms/${form.farmId}/activities`, { title: form.title, description: form.description, category: form.category, activityDate: form.activityDate, scheduledDate: form.scheduledDate || undefined, status: form.status, priority: form.priority, cost: form.cost === '' ? undefined : Number(form.cost), notes: form.notes || undefined }); setActivities([result.data, ...activities]); setForm({ ...form, title: '', description: '', scheduledDate: '', cost: '', notes: '' }); } catch (err) { setError(err.message || 'Unable to create activity.'); } finally { setBusy(false); } };
+  return <section><div className="section-heading"><div><p className="eyebrow">SYSTEM MANAGEMENT</p><h2>Activities</h2><p className="muted">Record work against the correct farm, then preserve its cost and labour context.</p></div><span className="record-count">{activities.length} recent</span></div>{error && <div className="notice error">{error}</div>}<form className="create-form activity-form" onSubmit={create}><label>Farm<select value={form.farmId} onChange={(event) => setForm({ ...form, farmId: event.target.value })} required>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select></label><label>Activity<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="e.g. Weed maize plot" required /></label><label>Category<select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}><option value="WEEDING">Weeding</option><option value="PLANTING">Planting</option><option value="LAND_PREPARATION">Land preparation</option><option value="OTHER">Other</option></select></label><label>Description<input value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="What was done?" required /></label><label>Activity date<input type="date" value={form.activityDate} onChange={(event) => setForm({ ...form, activityDate: event.target.value })} required /></label><label>Planned date<input type="date" value={form.scheduledDate} onChange={(event) => setForm({ ...form, scheduledDate: event.target.value })} /></label><label>Cost<input type="number" min="0" step="0.01" value={form.cost} onChange={(event) => setForm({ ...form, cost: event.target.value })} placeholder="GHS" /></label><label>Status<select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}><option value="PLANNED">Planned</option><option value="IN_PROGRESS">In progress</option><option value="COMPLETED">Completed</option></select></label><label>Notes<input value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Labour and plot details" /></label><button className="primary-button" disabled={busy || !form.farmId}>{busy ? 'Saving...' : 'Record activity'} <span>+</span></button></form>{loading ? <div className="loading-line" aria-label="Loading activities" /> : <div className="farm-grid">{activities.map((activity) => <div className="farm-card" key={activity.id}><div className="farm-card-top"><span className="farm-avatar large">{(activity.title || 'A')[0]}</span><select value={activity.status} onChange={(event) => update(activity, { status: event.target.value })} aria-label={`Status for ${activity.title}`}><option value="PLANNED">PLANNED</option><option value="IN_PROGRESS">IN PROGRESS</option><option value="COMPLETED">COMPLETED</option><option value="CANCELLED">CANCELLED</option><option value="OVERDUE">OVERDUE</option></select></div><h3>{activity.title}</h3><p>{activity.farm?.name || 'Unknown farm'} · {activity.category}</p><p className="muted">{activity.description}</p><div className="farm-card-foot"><span>{activity.user?.firstName} {activity.user?.lastName}</span><select value={activity.priority} onChange={(event) => update(activity, { priority: event.target.value })} aria-label={`Priority for ${activity.title}`}><option value="LOW">LOW</option><option value="NORMAL">NORMAL</option><option value="HIGH">HIGH</option><option value="URGENT">URGENT</option></select></div></div>)}{!activities.length && <div className="panel empty-wide"><h3>No activities found</h3><p className="muted">Farm activities will appear here as work is recorded.</p></div>}</div>}</section>;
 }
 
 function WorkerManagement({ farms }) {

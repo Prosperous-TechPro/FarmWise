@@ -7,7 +7,7 @@ export async function adminDashboardSummary(req, res) {
 }
 
 export async function getUsers(req, res) {
-  const users = await getAllUsers();
+  const users = await getAllUsers({ search: req.query.search, status: req.query.status, role: req.query.role });
   return res.json({ success: true, data: users });
 }
 

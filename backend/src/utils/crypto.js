@@ -50,11 +50,12 @@ export function hashValue(value) {
  * @returns {string} Random numeric OTP
  */
 export function generateOtp(length = 6) {
-  let otp = '';
-  for (let i = 0; i < length; i++) {
-    otp += Math.floor(Math.random() * 10);
-  }
-  return otp;
+  const digits = Array.from({ length }, () => {
+    const value = crypto.randomInt(0, 10);
+    return String(value);
+  });
+
+  return digits.join('');
 }
 
 /**
@@ -90,7 +91,7 @@ export function validatePasswordStrength(password) {
     errors.push('Password must contain at least one number');
   }
 
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
     errors.push('Password must contain at least one special character');
   }
 

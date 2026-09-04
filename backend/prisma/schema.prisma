@@ -46,9 +46,11 @@ enum CropCycleStatus {
   PLANTED
   GROWING
   HARVESTING
+  HARVESTED
   COMPLETED
   ABANDONED
   CANCELLED
+  ARCHIVED
 }
 
 /// Livestock sex
@@ -822,7 +824,6 @@ model Project {
   farm        Farm                @relation(fields: [farmId], references: [id], onDelete: Cascade)
   creator     User                @relation("ProjectCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   budgetLines ProjectBudgetLine[]
-  expenses    Expense[]
 
   @@index([farmId, status])
   @@index([createdBy])
@@ -945,7 +946,6 @@ model CropCycle {
   fieldId   String
   cropId    String
   varietyId String?
-
   /// Cycle information
   cycleName           String?         @db.VarChar(150)
   season              String?         @db.VarChar(50)
@@ -1873,7 +1873,6 @@ model Expense {
   fieldId          String?
   livestockId      String?
   farmActivityId   String?
-  projectId        String?
   inputId          String?
   supplier         String?   @db.VarChar(255)
   reference        String?   @db.VarChar(255)
@@ -1893,7 +1892,6 @@ model Expense {
   recordedByUser User       @relation(fields: [recordedBy], references: [id], onDelete: Restrict)
   cropCycle      CropCycle? @relation(fields: [cropCycleId], references: [id], onDelete: SetNull)
   livestock      Livestock? @relation(fields: [livestockId], references: [id], onDelete: SetNull)
-  project        Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@index([farmId])
   @@index([expenseDate])
@@ -1901,7 +1899,6 @@ model Expense {
   @@index([status])
   @@index([costType])
   @@index([currency])
-  @@index([projectId])
 }
 
 /// Sale - reusable sales/revenue transaction.

@@ -18,6 +18,18 @@ export async function listCrops(filters = {}) {
   });
 }
 
+export async function ensureDefaultCrops() {
+  await prisma.crop.createMany({
+    data: [
+      { name: 'Cassava', description: 'Cassava production' },
+      { name: 'Maize', description: 'Maize production' },
+      { name: 'Rice', description: 'Rice production' },
+      { name: 'Tomato', description: 'Tomato production' },
+    ],
+    skipDuplicates: true,
+  });
+}
+
 export async function getCropById(cropId) {
   return prisma.crop.findUnique({
     where: { id: cropId },
@@ -51,6 +63,9 @@ export async function listCropCyclesForFarm(farmId, filters = {}) {
       ...(filters.cropId ? { cropId: filters.cropId } : {}),
       ...(filters.fieldId ? { fieldId: filters.fieldId } : {}),
       ...(filters.status ? { status: filters.status } : {}),
+      ...(filters.plantingFrom || filters.plantingTo ? { plantingDate: { ...(filters.plantingFrom ? { gte: filters.plantingFrom } : {}), ...(filters.plantingTo ? { lte: filters.plantingTo } : {}) } } : {}),
+      ...(filters.harvestFrom || filters.harvestTo ? { expectedHarvestDate: { ...(filters.harvestFrom ? { gte: filters.harvestFrom } : {}), ...(filters.harvestTo ? { lte: filters.harvestTo } : {}) } } : {}),
+      ...(filters.search ? { OR: [{ cycleName: { contains: filters.search, mode: 'insensitive' } }, { crop: { name: { contains: filters.search, mode: 'insensitive' } } }, { variety: { name: { contains: filters.search, mode: 'insensitive' } } }] } : {}),
     },
     include: {
       crop: true,
@@ -81,7 +96,7 @@ export async function getCropCycleById(cropCycleId) {
 
 export async function createCropCycle(data) {
   return prisma.cropCycle.create({
-    data,
+    data: Object.fromEntries(Object.entries(data).filter(([key]) => key !== 'createdBy')),
     include: {
       crop: true,
       variety: true,
@@ -100,6 +115,10 @@ export async function updateCropCycle(cropCycleId, data) {
       field: true,
     },
   });
+}
+
+export async function deleteCropCycle(cropCycleId) {
+  return prisma.cropCycle.delete({ where: { id: cropCycleId } });
 }
 
 export async function listCropActivities(cropCycleId) {
@@ -148,6 +167,7 @@ export async function createCropGrowthRecord(data) {
 
 export default {
   listCrops,
+  ensureDefaultCrops,
   getCropById,
   createCrop,
   listCropVarieties,
@@ -156,6 +176,7 @@ export default {
   getCropCycleById,
   createCropCycle,
   updateCropCycle,
+    deleteCropCycle,
   listCropActivities,
   createCropActivity,
   listCropInputs,

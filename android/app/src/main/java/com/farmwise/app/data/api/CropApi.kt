@@ -8,6 +8,7 @@ interface CropApi {
     @GET("farms/{farmId}/crops") suspend fun listCycles(@Path("farmId") farmId: String, @Query("fieldId") fieldId: String? = null, @Query("status") status: String? = null): ApiEnvelope<List<CropCycleDto>>
     @GET("farms/{farmId}/crops/{cropCycleId}") suspend fun getCycle(@Path("farmId") farmId: String, @Path("cropCycleId") cycleId: String): ApiEnvelope<CropCycleDto>
     @POST("farms/{farmId}/crops") suspend fun createCycle(@Path("farmId") farmId: String, @Body request: CreateCropCycleRequest): ApiEnvelope<CropCycleDto>
+    @POST("farms/{farmId}/crops/{cropCycleId}/archive") suspend fun archiveCycle(@Path("farmId") farmId: String, @Path("cropCycleId") cycleId: String): ApiEnvelope<CropCycleDto>
     @GET("farms/{farmId}/crops/{cropCycleId}/activities") suspend fun listActivities(@Path("farmId") farmId: String, @Path("cropCycleId") cycleId: String): ApiEnvelope<List<CropActivityDto>>
     @POST("farms/{farmId}/crops/{cropCycleId}/activities") suspend fun createActivity(@Path("farmId") farmId: String, @Path("cropCycleId") cycleId: String, @Body request: CreateCropActivityRequest): ApiEnvelope<CropActivityDto>
     @GET("farms/{farmId}/crops/{cropCycleId}/inputs") suspend fun listInputs(@Path("farmId") farmId: String, @Path("cropCycleId") cycleId: String): ApiEnvelope<List<CropInputDto>>

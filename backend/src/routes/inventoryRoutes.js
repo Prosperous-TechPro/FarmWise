@@ -7,6 +7,7 @@ import {
   createInventoryAdjustment,
   createInventoryIssue,
   createInventoryItem,
+  deleteInventoryItem,
   createInventoryReceipt,
   createInventoryTransfer,
   createStorageLocation,
@@ -29,11 +30,12 @@ router.use(authenticate, authorize);
 router.get('/farms/:farmId/inventory/summary', requireFarmAccess, asyncHandler(getInventoryOverview));
 
 router.get('/farms/:farmId/inventory/items', requireFarmAccess, asyncHandler(listInventoryItems));
-router.post('/farms/:farmId/inventory/items', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createInventoryItem));
-router.put('/farms/:farmId/inventory/items/:itemId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(updateInventoryItem));
+router.post('/farms/:farmId/inventory/items', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(createInventoryItem));
+router.put('/farms/:farmId/inventory/items/:itemId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(updateInventoryItem));
+router.delete('/farms/:farmId/inventory/items/:itemId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(deleteInventoryItem));
 
 router.get('/farms/:farmId/inventory/locations', requireFarmAccess, asyncHandler(listStorageLocations));
-router.post('/farms/:farmId/inventory/locations', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createStorageLocation));
+router.post('/farms/:farmId/inventory/locations', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(createStorageLocation));
 
 router.get('/farms/:farmId/inventory/receipts', requireFarmAccess, asyncHandler(listInventoryReceipts));
 router.post('/farms/:farmId/inventory/receipts', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(createInventoryReceipt));

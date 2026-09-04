@@ -109,9 +109,9 @@ export async function listFieldsService(farmId) {
   return listFarmFields(farmId);
 }
 
-export async function getFieldDetailService(fieldId) {
+export async function getFieldDetailService(farmId, fieldId) {
   const field = await findFieldById(fieldId);
-  if (!field) {
+  if (!field || field.farmId !== farmId) {
     const error = new Error('Field not found');
     error.statusCode = 404;
     throw error;
@@ -119,7 +119,7 @@ export async function getFieldDetailService(fieldId) {
   return field;
 }
 
-export async function updateFieldService(fieldId, input) {
+export async function updateFieldService(farmId, fieldId, input) {
   const validation = validateUpdateField(input);
   if (!validation.isValid) {
     const error = new Error('Validation failed');
@@ -129,7 +129,7 @@ export async function updateFieldService(fieldId, input) {
   }
 
   const field = await findFieldById(fieldId);
-  if (!field) {
+  if (!field || field.farmId !== farmId) {
     const error = new Error('Field not found');
     error.statusCode = 404;
     throw error;
@@ -138,9 +138,9 @@ export async function updateFieldService(fieldId, input) {
   return updateField(fieldId, validation.normalizedData);
 }
 
-export async function deleteFieldService(fieldId) {
+export async function deleteFieldService(farmId, fieldId) {
   const field = await findFieldById(fieldId);
-  if (!field) {
+  if (!field || field.farmId !== farmId) {
     const error = new Error('Field not found');
     error.statusCode = 404;
     throw error;

@@ -37,6 +37,10 @@ export async function updateInventoryItem(itemId, data) {
   });
 }
 
+export async function deleteInventoryItem(itemId) {
+  return prisma.inventoryItem.delete({ where: { id: itemId } });
+}
+
 export async function listStorageLocationsByFarm(farmId) {
   return prisma.storageLocation.findMany({
     where: { farmId },
@@ -165,6 +169,7 @@ export default {
   getInventoryItemById,
   createInventoryItem,
   updateInventoryItem,
+  deleteInventoryItem,
   listStorageLocationsByFarm,
   createStorageLocation,
   listInventoryReceiptsByFarm,

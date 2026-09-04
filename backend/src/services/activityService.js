@@ -8,6 +8,7 @@ import {
   createActivityObservation,
   createActivityTask,
   createActivityType,
+  deleteActivity,
   createHarvest,
   createProductionRecord,
   getActivityById,
@@ -17,6 +18,7 @@ import {
   listActivityTypesByFarm,
   listHarvestsByFarm,
   listProductionRecordsByFarm,
+  updateActivity,
 } from '../repositories/activityRepository.js';
 import {
   validateCreateActivity,
@@ -112,6 +114,44 @@ export async function createFarmActivityService(farmId, userId, input) {
     notes: validation.normalizedData.notes || null,
     mediaReferences: validation.normalizedData.mediaReferences || null,
   });
+}
+
+export async function updateFarmActivityService(farmId, activityId, input) {
+  const activity = await getFarmActivityService(farmId, activityId);
+  const validation = validateCreateActivity({
+    title: input.title ?? activity.title,
+    description: input.description ?? activity.description,
+    category: input.category ?? activity.category,
+    status: input.status ?? activity.status,
+    priority: input.priority ?? activity.priority,
+    activityDate: input.activityDate ?? activity.activityDate,
+    scheduledDate: input.scheduledDate ?? activity.scheduledDate,
+    cost: input.cost ?? activity.cost,
+    notes: input.notes ?? activity.notes,
+  });
+  if (!validation.isValid) {
+    const error = new Error('Validation failed');
+    error.statusCode = 400;
+    error.details = validation.errors;
+    throw error;
+  }
+
+  return updateActivity(activityId, {
+    title: validation.normalizedData.title,
+    description: validation.normalizedData.description,
+    category: validation.normalizedData.category,
+    status: validation.normalizedData.status,
+    priority: validation.normalizedData.priority,
+    activityDate: validation.normalizedData.activityDate,
+    scheduledDate: validation.normalizedData.scheduledDate || null,
+    cost: validation.normalizedData.cost ?? null,
+    notes: validation.normalizedData.notes || null,
+  });
+}
+
+export async function deleteFarmActivityService(farmId, activityId) {
+  await getFarmActivityService(farmId, activityId);
+  return deleteActivity(activityId);
 }
 
 export async function createFarmActivityTaskService(farmId, activityId, userId, input) {
@@ -252,6 +292,8 @@ export default {
   listFarmActivitiesService,
   getFarmActivityService,
   createFarmActivityService,
+  updateFarmActivityService,
+  deleteFarmActivityService,
   createFarmActivityTaskService,
   listFarmActivityTasksService,
   createFarmActivityObservationService,

@@ -46,9 +46,11 @@ enum CropCycleStatus {
   PLANTED
   GROWING
   HARVESTING
+  HARVESTED
   COMPLETED
   ABANDONED
   CANCELLED
+  ARCHIVED
 }
 
 /// Livestock sex
@@ -499,6 +501,7 @@ model User {
   ownedFarms                 Farm[]
   farmMembers                FarmMember[]
   createdProjects            Project[]                   @relation("ProjectCreator")
+  createdCropCycles          CropCycle[]                 @relation("CropCycleCreator")
   createdActivities          FarmActivity[]              @relation("FarmActivityCreator")
   assignedActivities         FarmActivity[]              @relation("FarmActivityAssignee")
   activityTaskAssignments    FarmActivityTask[]          @relation("FarmActivityTaskAssignee")
@@ -945,6 +948,7 @@ model CropCycle {
   fieldId   String
   cropId    String
   varietyId String?
+  createdBy String?
 
   /// Cycle information
   cycleName           String?         @db.VarChar(150)
@@ -973,6 +977,7 @@ model CropCycle {
   field             Field               @relation(fields: [fieldId], references: [id], onDelete: Cascade)
   crop              Crop                @relation(fields: [cropId], references: [id], onDelete: Restrict)
   variety           CropVariety?        @relation(fields: [varietyId], references: [id], onDelete: SetNull)
+  creator           User?              @relation("CropCycleCreator", fields: [createdBy], references: [id], onDelete: SetNull)
   activities        CropCycleActivity[]
   inputs            CropCycleInput[]
   observations      CropObservation[]
@@ -987,6 +992,7 @@ model CropCycle {
   @@index([fieldId])
   @@index([cropId])
   @@index([varietyId])
+  @@index([createdBy])
   @@index([status])
   @@index([plantingDate])
   @@index([expectedHarvestDate])

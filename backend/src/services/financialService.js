@@ -5,6 +5,8 @@
 import {
   createBudget,
   createExpense,
+  deleteExpense,
+  getExpenseById,
   createFinancialLoss,
   createSale,
   getFarmFinancialSummary,
@@ -70,9 +72,18 @@ export async function createExpenseService(farmId, userId, input) {
     status: validation.normalizedData.status,
     expenseDate: validation.normalizedData.expenseDate,
     expenseTime: validation.normalizedData.expenseTime || null,
-    projectId: validation.normalizedData.projectId || null,
     notes: input.notes || null,
   });
+}
+
+export async function deleteExpenseService(farmId, expenseId) {
+  const expense = await getExpenseById(expenseId);
+  if (!expense || expense.farmId !== farmId) {
+    const error = new Error('Expense not found in this farm');
+    error.statusCode = 404;
+    throw error;
+  }
+  return deleteExpense(expenseId);
 }
 
 export async function listFarmSalesService(farmId, filters = {}) {

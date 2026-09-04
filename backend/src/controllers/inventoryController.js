@@ -6,6 +6,7 @@ import {
   createInventoryAdjustmentService,
   createInventoryIssueService,
   createInventoryItemService,
+  deleteInventoryItemService,
   createInventoryReceiptService,
   createInventoryTransferService,
   createStorageLocationService,
@@ -52,6 +53,11 @@ export async function updateInventoryItem(req, res) {
     data,
     message: 'Inventory item updated successfully',
   });
+}
+
+export async function deleteInventoryItem(req, res) {
+  await deleteInventoryItemService(req.params.farmId, req.params.itemId);
+  return res.status(204).send();
 }
 
 export async function listStorageLocations(req, res) {
@@ -185,6 +191,7 @@ export default {
   listInventoryItems,
   createInventoryItem,
   updateInventoryItem,
+  deleteInventoryItem,
   listStorageLocations,
   createStorageLocation,
   listInventoryReceipts,

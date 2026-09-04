@@ -117,7 +117,7 @@ export async function createField(req, res) {
 }
 
 export async function getField(req, res) {
-  const field = await getFieldDetailService(req.params.fieldId);
+  const field = await getFieldDetailService(req.params.farmId, req.params.fieldId);
   return res.status(200).json({
     success: true,
     data: field,
@@ -126,7 +126,7 @@ export async function getField(req, res) {
 }
 
 export async function updateField(req, res) {
-  const field = await updateFieldService(req.params.fieldId, req.body);
+  const field = await updateFieldService(req.params.farmId, req.params.fieldId, req.body);
   return res.status(200).json({
     success: true,
     data: field,
@@ -135,7 +135,7 @@ export async function updateField(req, res) {
 }
 
 export async function deleteField(req, res) {
-  await deleteFieldService(req.params.fieldId);
+  await deleteFieldService(req.params.farmId, req.params.fieldId);
   return res.status(204).send();
 }
 

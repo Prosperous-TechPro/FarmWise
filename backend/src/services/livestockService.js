@@ -5,6 +5,8 @@
 import {
   createLivestock,
   createBreedingRecord,
+  deleteLivestock,
+  ensureDefaultLivestockSpecies,
   getLivestockById,
   listBreedingRecordsForAnimal,
   listLivestockBreeds,
@@ -93,7 +95,18 @@ export async function updateLivestockService(farmId, livestockId, input) {
   return updateLivestock(livestockId, validation.normalizedData);
 }
 
+export async function deleteLivestockService(farmId, livestockId) {
+  const animal = await getLivestockById(livestockId);
+  if (!animal || animal.farmId !== farmId) {
+    const error = new Error('Livestock not found in this farm');
+    error.statusCode = 404;
+    throw error;
+  }
+  return deleteLivestock(livestockId);
+}
+
 export async function listLivestockSpeciesService() {
+  await ensureDefaultLivestockSpecies();
   return listLivestockSpecies();
 }
 
@@ -169,6 +182,7 @@ export default {
   createLivestockService,
   getLivestockDetailService,
   updateLivestockService,
+  deleteLivestockService,
   listLivestockSpeciesService,
   listLivestockBreedsService,
   createLivestockBreedingService,

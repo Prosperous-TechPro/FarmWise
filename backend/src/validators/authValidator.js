@@ -197,8 +197,8 @@ export function validateOtpVerification(data) {
     errors.code = 'OTP code is required';
   } else if (!/^\d+$/.test(data.code)) {
     errors.code = 'OTP code must contain only digits';
-  } else if (data.code.length < 4 || data.code.length > 10) {
-    errors.code = 'OTP code must be between 4 and 10 digits';
+  } else if (data.code.length !== 6) {
+    errors.code = 'OTP code must be exactly 6 digits';
   }
 
   return {

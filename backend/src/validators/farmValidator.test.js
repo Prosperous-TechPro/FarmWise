@@ -53,3 +53,25 @@ test('validateUpdateFarm normalizes status and trims values', () => {
   assert.equal(result.normalizedData.status, 'ARCHIVED');
   assert.equal(result.normalizedData.country, 'Ghana');
 });
+
+test('validateCreateFarm blocks owner override attempts', () => {
+  const result = validateCreateFarm({
+    name: 'Green Valley Farm',
+    ownerId: 'attacker-user-id',
+  });
+
+  assert.equal(result.isValid, false);
+  assert.match(result.errors.ownerId, /managed by the system/i);
+});
+
+test('validateUpdateFarm blocks owner changes and other immutable fields', () => {
+  const result = validateUpdateFarm({
+    name: 'Updated Farm',
+    ownerId: 'attacker-user-id',
+    id: 'farm-id-override',
+  });
+
+  assert.equal(result.isValid, false);
+  assert.match(result.errors.ownerId, /managed by the system/i);
+  assert.match(result.errors.id, /immutable/i);
+});

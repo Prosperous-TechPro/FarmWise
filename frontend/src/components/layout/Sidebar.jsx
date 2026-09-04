@@ -1,7 +1,7 @@
 import React from 'react';
 
 const items = [['dashboard', 'Overview'], ['farms', 'My farms'], ['workers', 'Workers'], ['records', 'Records'], ['projects', 'Projects'], ['community', 'Community'], ['notifications', 'Notifications'], ['account', 'Account']];
-const adminItems = [['users', 'Users'], ['admin-farms', 'All farms'], ['activities', 'Activities']];
+const adminItems = [['users', 'Users'], ['admin-farms', 'All farms']];
 
 export default function Sidebar({ activeView, isOpen, isSystemAdmin, onViewChange, onClose }) {
   return <>

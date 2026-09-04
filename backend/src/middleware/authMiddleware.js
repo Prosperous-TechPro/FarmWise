@@ -10,8 +10,35 @@ import { isSessionValid } from '../repositories/authSessionRepository.js';
 import logger from '../utils/logger.js';
 import config from '../config/index.js';
 
+export function normalizeRoleName(role) {
+  if (!role || typeof role !== 'string') return null;
+
+  const trimmed = role.trim();
+  if (!trimmed) return null;
+
+  const aliasMap = {
+    SUPER_ADMIN: 'SUPERADMIN',
+    SUPERADMIN: 'SUPERADMIN',
+    ADMIN: 'ADMIN',
+    FARM_OWNER: 'FARM_OWNER',
+    FARMOWNER: 'FARM_OWNER',
+    FARM_WORKER: 'WORKER',
+    FARMWORKER: 'WORKER',
+    WORKER: 'WORKER',
+    OWNER: 'OWNER',
+    MANAGER: 'MANAGER',
+  };
+
+  return aliasMap[trimmed] || trimmed;
+}
+
+function normalizeRoles(roles = []) {
+  return Array.from(new Set((Array.isArray(roles) ? roles : []).map(normalizeRoleName).filter(Boolean)));
+}
+
 function isSystemAdmin(user) {
-  return user?.roles?.some((role) => ['ADMIN', 'SUPERADMIN'].includes(role));
+  const roles = normalizeRoles(user?.roles);
+  return roles.some((role) => ['ADMIN', 'SUPERADMIN'].includes(role));
 }
 
 /**
@@ -76,7 +103,7 @@ export async function authenticate(req, res, next) {
       firstName: user.firstName,
       lastName: user.lastName,
       status: user.status,
-      roles: user.roles ? user.roles.map((ur) => ur.role.name) : [],
+      roles: normalizeRoles(user.roles ? user.roles.map((ur) => ur.role.name) : []),
     };
 
     next();
@@ -127,8 +154,9 @@ export function requireRole(roles) {
       });
     }
 
-    const userRoles = req.user.roles || [];
-    const hasRole = requiredRoles.some((role) => userRoles.includes(role));
+    const userRoles = normalizeRoles(req.user.roles || []);
+    const normalizedRequiredRoles = normalizeRoles(requiredRoles);
+    const hasRole = normalizedRequiredRoles.some((role) => userRoles.includes(role));
 
     if (!hasRole) {
       logger.warn(`Unauthorized role access attempt`, {
@@ -142,7 +170,7 @@ export function requireRole(roles) {
         success: false,
         message: 'Insufficient permissions',
         errors: {
-          authorization: `You must have one of these roles: ${requiredRoles.join(', ')}`,
+          authorization: `You must have one of these roles: ${normalizedRequiredRoles.join(', ')}`,
         },
       });
     }
@@ -171,10 +199,13 @@ export function requirePermission(permissions) {
 
       if (isSystemAdmin(req.user)) return next();
 
+      const normalizedRequiredPermissions = requiredPermissions.map((value) => String(value).trim()).filter(Boolean);
+
       // Get user permissions from database
       const userPermissions = await getUserPermissions(req.user.id);
+      const normalizedUserPermissions = Array.from(new Set((userPermissions || []).map((permission) => String(permission).trim()).filter(Boolean)));
 
-      const hasPermission = requiredPermissions.some((perm) => userPermissions.includes(perm));
+      const hasPermission = normalizedRequiredPermissions.some((perm) => normalizedUserPermissions.includes(perm));
 
       if (!hasPermission) {
         logger.warn(`Unauthorized permission access attempt`, {
@@ -362,7 +393,7 @@ export async function optionalAuthenticate(req, res, next) {
           firstName: user.firstName,
           lastName: user.lastName,
           status: user.status,
-          roles: user.roles ? user.roles.map((ur) => ur.role.name) : [],
+          roles: normalizeRoles(user.roles ? user.roles.map((ur) => ur.role.name) : []),
         };
       }
     } catch (error) {

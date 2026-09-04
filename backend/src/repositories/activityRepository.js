@@ -72,6 +72,10 @@ export async function updateActivity(activityId, data) {
   });
 }
 
+export async function deleteActivity(activityId) {
+  return prisma.farmActivity.delete({ where: { id: activityId } });
+}
+
 export async function createActivityTask(activityId, data) {
   return prisma.farmActivityTask.create({
     data: { activityId, ...data },
@@ -166,6 +170,7 @@ export default {
   getActivityById,
   createActivity,
   updateActivity,
+  deleteActivity,
   createActivityTask,
   listActivityTasksByActivity,
   createActivityObservation,

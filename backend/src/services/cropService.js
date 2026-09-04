@@ -10,6 +10,8 @@ import {
   createCropInput,
   createCropObservation,
   createCropVariety,
+    deleteCropCycle,
+  ensureDefaultCrops,
   getCropCycleById,
   getCropById,
   listCropActivities,
@@ -23,6 +25,7 @@ import {
 } from '../repositories/cropRepository.js';
 import { getFarmById } from '../repositories/farmRepository.js';
 import { findFieldById } from '../repositories/farmRepository.js';
+import { createAuditLog } from '../repositories/auditRepository.js';
 import {
   validateCreateCropActivity,
   validateCreateCropCycle,
@@ -31,6 +34,7 @@ import {
 } from '../validators/cropValidator.js';
 
 export async function listCropsService(filters = {}) {
+  await ensureDefaultCrops();
   return listCrops(filters);
 }
 
@@ -95,7 +99,7 @@ export async function listFarmCropCyclesService(farmId, filters = {}) {
   return listCropCyclesForFarm(farmId, filters);
 }
 
-export async function createCropCycleService(farmId, input) {
+export async function createCropCycleService(farmId, input, actor = {}) {
   const farm = await getFarmById(farmId);
   if (!farm) {
     const error = new Error('Farm not found');
@@ -139,7 +143,7 @@ export async function createCropCycleService(farmId, input) {
     throw error;
   }
 
-  return createCropCycle({
+  const cycle = await createCropCycle({
     farmId,
     fieldId: validation.normalizedData.fieldId || input.fieldId,
     cropId: validation.normalizedData.cropId || input.cropId,
@@ -157,6 +161,20 @@ export async function createCropCycleService(farmId, input) {
     yieldUnit: input.yieldUnit || 'KILOGRAM',
     notes: input.notes || null,
   });
+
+  if (actor.userId) {
+    await createAuditLog({
+      farmId,
+      userId: actor.userId,
+      action: 'CROP_PRODUCTION_CREATED',
+      entityType: 'CropCycle',
+      entityId: cycle.id,
+      newValues: { cropId: cycle.cropId, fieldId: cycle.fieldId, status: cycle.status },
+      req: actor.req,
+    });
+  }
+
+  return cycle;
 }
 
 export async function getCropCycleDetailService(farmId, cropCycleId) {
@@ -176,7 +194,7 @@ export async function getCropCycleDetailService(farmId, cropCycleId) {
   return cycle;
 }
 
-export async function updateCropCycleService(farmId, cropCycleId, input) {
+export async function updateCropCycleService(farmId, cropCycleId, input, actor = {}) {
   const cycle = await getCropCycleById(cropCycleId);
   if (!cycle) {
     const error = new Error('Crop cycle not found');
@@ -190,7 +208,18 @@ export async function updateCropCycleService(farmId, cropCycleId, input) {
     throw error;
   }
 
-  const validation = validateCreateCropCycle({ ...cycle, ...input });
+  const validation = validateCreateCropCycle({
+    ...input,
+    fieldId: cycle.fieldId,
+    cropId: cycle.cropId,
+    varietyId: input.varietyId ?? cycle.varietyId,
+    area: input.area ?? cycle.plantedArea,
+    areaUnit: input.areaUnit ?? cycle.areaUnit,
+    plantingDate: input.plantingDate ?? cycle.plantingDate,
+    expectedHarvestDate: input.expectedHarvestDate ?? cycle.expectedHarvestDate,
+    actualHarvestDate: input.actualHarvestDate ?? cycle.actualHarvestDate,
+    status: input.status ?? cycle.status,
+  });
   if (!validation.isValid) {
     const error = new Error('Validation failed');
     error.statusCode = 400;
@@ -198,7 +227,7 @@ export async function updateCropCycleService(farmId, cropCycleId, input) {
     throw error;
   }
 
-  return updateCropCycle(cropCycleId, {
+  const updated = await updateCropCycle(cropCycleId, {
     cycleName: validation.normalizedData.cycleName || cycle.cycleName,
     season: validation.normalizedData.season || cycle.season,
     status: validation.normalizedData.status || cycle.status,
@@ -209,6 +238,46 @@ export async function updateCropCycleService(farmId, cropCycleId, input) {
     actualHarvestDate: validation.normalizedData.actualHarvestDate || cycle.actualHarvestDate,
     notes: validation.normalizedData.notes || cycle.notes,
   });
+
+  if (actor.userId) {
+    await createAuditLog({
+      farmId,
+      userId: actor.userId,
+      action: cycle.status !== updated.status ? 'CROP_STATUS_CHANGED' : 'CROP_PRODUCTION_UPDATED',
+      entityType: 'CropCycle',
+      entityId: updated.id,
+      oldValues: { status: cycle.status, cycleName: cycle.cycleName, plantingDate: cycle.plantingDate },
+      newValues: { status: updated.status, cycleName: updated.cycleName, plantingDate: updated.plantingDate },
+      req: actor.req,
+    });
+  }
+
+  return updated;
+}
+
+export async function archiveCropCycleService(farmId, cropCycleId, actor = {}) {
+  const cycle = await getCropCycleDetailService(farmId, cropCycleId);
+  const updated = await updateCropCycle(cropCycleId, { status: 'ARCHIVED' });
+
+  if (actor.userId) {
+    await createAuditLog({
+      farmId,
+      userId: actor.userId,
+      action: 'CROP_PRODUCTION_ARCHIVED',
+      entityType: 'CropCycle',
+      entityId: cycle.id,
+      oldValues: { status: cycle.status },
+      newValues: { status: updated.status },
+      req: actor.req,
+    });
+  }
+
+  return updated;
+}
+
+export async function deleteCropCycleService(farmId, cropCycleId) {
+  await getCropCycleDetailService(farmId, cropCycleId);
+  return deleteCropCycle(cropCycleId);
 }
 
 export async function listCropActivitiesService(farmId, cropCycleId) {
@@ -216,7 +285,7 @@ export async function listCropActivitiesService(farmId, cropCycleId) {
   return listCropActivities(cycle.id);
 }
 
-export async function createCropActivityService(farmId, cropCycleId, input) {
+export async function createCropActivityService(farmId, cropCycleId, input, actor = {}) {
   const cycle = await getCropCycleDetailService(farmId, cropCycleId);
   const validation = validateCreateCropActivity({ ...input, cropCycleId: cycle.id });
 
@@ -229,7 +298,7 @@ export async function createCropActivityService(farmId, cropCycleId, input) {
 
   return createCropActivity({
     cropCycleId: cycle.id,
-    userId: input.userId || null,
+    userId: actor.userId || null,
     activityType: validation.normalizedData.activityType,
     description: validation.normalizedData.description,
     activityDate: validation.normalizedData.activityDate,
@@ -279,7 +348,7 @@ export async function listCropObservationsService(farmId, cropCycleId) {
   return listCropObservations(cycle.id);
 }
 
-export async function createCropObservationService(farmId, cropCycleId, input) {
+export async function createCropObservationService(farmId, cropCycleId, input, actor = {}) {
   const cycle = await getCropCycleDetailService(farmId, cropCycleId);
   const validation = validateCreateCropObservation({ ...input, cropCycleId: cycle.id });
 
@@ -295,7 +364,7 @@ export async function createCropObservationService(farmId, cropCycleId, input) {
     observationDate: validation.normalizedData.observationDate,
     observation: validation.normalizedData.observation,
     severity: validation.normalizedData.severity,
-    workerId: input.workerId || null,
+    workerId: actor.userId || null,
     notes: validation.normalizedData.notes || null,
     mediaUrl: input.mediaUrl || null,
   });
@@ -337,6 +406,8 @@ export default {
   createCropCycleService,
   getCropCycleDetailService,
   updateCropCycleService,
+  archiveCropCycleService,
+    deleteCropCycleService,
   listCropActivitiesService,
   createCropActivityService,
   listCropInputsService,

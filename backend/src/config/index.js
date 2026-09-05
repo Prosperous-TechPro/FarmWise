@@ -79,9 +79,10 @@ const config = {
   // SMS Service (Hubtel)
   sms: {
     provider: 'hubtel',
-    clientId: process.env.HUBTEL_CLIENT_ID,
-    clientSecret: process.env.HUBTEL_CLIENT_SECRET,
-    apiKey: process.env.HUBTEL_API_KEY,
+    baseUrl: process.env.HUBTEL_SMS_BASE_URL || 'https://api.hubtel.com/v1/sms/send',
+    clientId: process.env.HUBTEL_CLIENT_ID || process.env.HUBTEL_SMS_CLIENT_ID,
+    clientSecret: process.env.HUBTEL_CLIENT_SECRET || process.env.HUBTEL_SMS_CLIENT_SECRET,
+    apiKey: process.env.HUBTEL_API_KEY || process.env.HUBTEL_SMS_CLIENT_SECRET,
     from: process.env.HUBTEL_SMS_FROM || 'FarmWise',
   },
 

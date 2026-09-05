@@ -27,7 +27,7 @@ export class HubtelProvider extends SmsProvider {
   constructor(config) {
     super();
     this.config = config;
-    this.baseUrl = 'https://api.hubtel.com/v1/sms/send';
+    this.baseUrl = this.config.sms.baseUrl || 'https://api.hubtel.com/v1/sms/send';
   }
 
   /**

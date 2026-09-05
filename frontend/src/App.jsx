@@ -6,6 +6,7 @@ import ActivityRecords from './components/ActivityRecords';
 import LivestockRecords from './components/LivestockRecords';
 import FinanceRecords from './components/FinanceRecords';
 import InventoryRecords from './components/InventoryRecords';
+import AdminSupport from './components/support/AdminSupport';
 import './App.css';
 
 const TOKEN_KEY = 'farmwise.accessToken';
@@ -40,6 +41,13 @@ function hasSuperAdminRole(user) {
   });
 }
 
+function hasWorkerRole(user) {
+  return Array.isArray(user?.roles) && user.roles.some((role) => {
+    const roleName = typeof role === 'string' ? role : role?.role?.name || role?.name;
+    return ['FARM_WORKER', 'WORKER'].includes(roleName);
+  });
+}
+
 function AppContent() {
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
   const [user, setUser] = useState(getStoredUser);
@@ -54,6 +62,8 @@ function AppContent() {
   const workspaceRequestRef = useRef(0);
   const isSystemAdmin = hasSystemAdminRole(user);
   const isSuperAdmin = hasSuperAdminRole(user);
+  const isWorker = hasWorkerRole(user) && !isSystemAdmin;
+  const [workerDashboard, setWorkerDashboard] = useState(null);
   const [pathname, setPathname] = useState(window.location.pathname);
 
   useEffect(() => {
@@ -99,7 +109,9 @@ function AppContent() {
     const requestId = ++workspaceRequestRef.current;
     setLoading(true); setNotice(null);
     try {
-      const requests = isSystemAdmin
+      const requests = isWorker
+        ? [apiClient.get('/worker/dashboard', { timeout: 20000 }), apiClient.get('/farms', { timeout: 20000 })]
+        : isSystemAdmin
         ? [apiClient.get('/farms', { timeout: 20000 }), apiClient.get('/admin/dashboard/summary', { timeout: 20000 })]
         : [apiClient.get('/dashboard/overview', { timeout: 20000 }), apiClient.get('/farms', { timeout: 20000 })];
       const [firstResult, farmsResult] = await Promise.allSettled(requests);
@@ -113,10 +125,11 @@ function AppContent() {
       }
       const firstResponse = firstResult.status === 'fulfilled' ? firstResult.value : null;
       const secondResponse = farmsResult.status === 'fulfilled' ? farmsResult.value : null;
-      const overviewResponse = isSystemAdmin ? null : firstResponse;
+      const overviewResponse = isSystemAdmin || isWorker ? null : firstResponse;
       const farmsResponse = isSystemAdmin ? firstResponse : secondResponse;
       setOverview(overviewResponse?.data || null);
       setFarms(Array.isArray(farmsResponse?.data) ? farmsResponse.data : []);
+      if (isWorker) setWorkerDashboard(firstResponse?.data || null);
       try {
         sessionStorage.setItem(WORKSPACE_CACHE_KEY, JSON.stringify({
           overview: overviewResponse?.data || null,
@@ -182,10 +195,9 @@ function AppContent() {
     }} onRegister={() => navigate('/register')} />;
   }
 
-  const firstName = user?.firstName || user?.first_name || 'Farmer';
   return (
-    <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)}>
-        {view === 'dashboard' && <Dashboard overview={overview} farmDashboard={farmDashboard} farmDashboardError={farmDashboardError} selectedFarmId={selectedFarmId} onFarmChange={setSelectedFarmId} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />}
+    <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)}>
+      {view === 'dashboard' && (isWorker ? <WorkerDashboard dashboard={workerDashboard} user={user} loading={loading} /> : <Dashboard overview={overview} farmDashboard={farmDashboard} farmDashboardError={farmDashboardError} selectedFarmId={selectedFarmId} onFarmChange={setSelectedFarmId} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />)}
         {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { setFarms([...farms, farm]); setNotice('Farm created successfully.'); }} onUpdated={(farm) => { setFarms(farms.map((item) => item.id === farm.id ? farm : item)); setNotice('Farm updated successfully.'); }} onDeleted={(farmId) => { setFarms(farms.filter((item) => item.id !== farmId)); setNotice('Farm deleted successfully.'); }} />}
         {view === 'records' && <Records farms={farms} isSystemAdmin={isSystemAdmin} />}
         {view === 'projects' && <Projects farms={farms} />}
@@ -194,10 +206,25 @@ function AppContent() {
         {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice('Profile updated successfully.'); }} />}
         {view === 'users' && <UserManagement isSuperAdmin={isSuperAdmin} />}
         {view === 'admin-farms' && <AdminFarmManagement />}
+        {view === 'feedback' && <AdminSupport />}
         {view === 'workers' && <WorkerManagement farms={farms} />}
         {view === 'analytics' && <Analytics overview={overview} />}
     </DashboardLayout>
   );
+}
+
+function WorkerDashboard({ dashboard, user, loading }) {
+  const tasks = dashboard?.tasks || [];
+  const farms = dashboard?.farms || [];
+  const activities = dashboard?.activities || [];
+  return <section>
+    <div className="section-heading"><div><p className="eyebrow">WORKER DASHBOARD</p><h2>Good morning, {user?.firstName || 'worker'}.</h2><p className="muted">Your assigned farms and work, in one place.</p></div></div>
+    {loading && !dashboard ? <div className="dashboard-skeleton" aria-label="Loading worker dashboard"><span /><span /><span /></div> : <>
+      <div className="stat-grid"><Stat label="Assigned farms" value={farms.length} detail="Active assignments" tone="green" /><Stat label="Open tasks" value={tasks.length} detail="Assigned to you" tone="blue" /><Stat label="Recent activities" value={activities.length} detail="Your recorded work" tone="yellow" /></div>
+      <div className="content-grid"><div className="panel"><div className="panel-heading"><div><p className="eyebrow">ASSIGNMENTS</p><h3>My farms</h3></div></div>{farms.length ? farms.map((farm) => <div className="list-row" key={farm.id}><strong>{farm.name}</strong><span className="muted">{farm.region || 'Active assignment'}</span></div>) : <p className="muted">No active farm assignments.</p>}</div><div className="panel"><div className="panel-heading"><div><p className="eyebrow">TODAY&apos;S WORK</p><h3>Assigned tasks</h3></div></div>{tasks.length ? tasks.slice(0, 8).map((task) => <div className="list-row" key={task.id}><div><strong>{task.title}</strong><span className="muted">{task.activity?.title || 'Farm activity'}</span></div><span className="record-count">{task.status}</span></div>) : <p className="muted">No open tasks assigned to you.</p>}</div></div>
+      <div className="panel"><div className="panel-heading"><div><p className="eyebrow">RECENT ACTIVITY</p><h3>Your recorded work</h3></div></div>{activities.length ? activities.slice(0, 6).map((activity) => <div className="list-row" key={activity.id}><strong>{activity.title}</strong><span className="muted">{activity.status}</span></div>) : <p className="muted">No recent activity yet.</p>}</div>
+    </>}
+  </section>;
 }
 
 function Login({ onLogin, onRegister }) {

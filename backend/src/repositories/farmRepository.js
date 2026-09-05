@@ -167,6 +167,7 @@ export async function listFarmWorkers(farmId) {
     where: { farmId, status: 'ACTIVE', role: { not: 'OWNER' } },
     include: {
       user: { select: { id: true, email: true, firstName: true, lastName: true, status: true } },
+      permissionGrants: { include: { permission: { select: { code: true, name: true, category: true } } } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -177,12 +178,15 @@ export async function findFarmMember(memberId) {
 }
 
 export async function addFarmWorker(farmId, userId, role = 'WORKER') {
-  return prisma.farmMember.upsert({
+  const member = await prisma.farmMember.upsert({
     where: { userId_farmId: { userId, farmId } },
     create: { farmId, userId, role, status: 'ACTIVE' },
     update: { role, status: 'ACTIVE' },
     include: { user: { select: { id: true, email: true, firstName: true, lastName: true, status: true } } },
   });
+  const workerRole = await prisma.role.findFirst({ where: { name: { in: ['FARM_WORKER', 'WORKER'] } }, orderBy: { name: 'asc' } });
+  if (workerRole) await prisma.userRole.upsert({ where: { userId_roleId: { userId, roleId: workerRole.id } }, update: {}, create: { userId, roleId: workerRole.id } });
+  return member;
 }
 
 export async function updateFarmWorker(memberId, data) {

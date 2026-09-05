@@ -189,6 +189,27 @@ enum ProjectStatus {
   CANCELLED
 }
 
+enum FAQStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_REVIEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum FeedbackPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 /// Area unit types
 enum AreaUnit {
   ACRE
@@ -500,6 +521,7 @@ model User {
   userRoles                  UserRole[]
   ownedFarms                 Farm[]
   farmMembers                FarmMember[]
+  grantedWorkerPermissions   WorkerFarmPermission[]      @relation("WorkerPermissionGrantor")
   createdProjects            Project[]                   @relation("ProjectCreator")
   createdActivities          FarmActivity[]              @relation("FarmActivityCreator")
   assignedActivities         FarmActivity[]              @relation("FarmActivityAssignee")
@@ -526,6 +548,13 @@ model User {
   communityLikes             CommunityLike[]
   communityReports           CommunityReport[]
   communityModerationActions CommunityModerationAction[]
+  createdFAQs                FAQ[]                       @relation("FAQCreator")
+  updatedFAQs                FAQ[]                       @relation("FAQUpdater")
+  faqFeedback                FAQFeedback[]
+  submittedFeedback          Feedback[]                  @relation("FeedbackSubmitter")
+  assignedFeedback           Feedback[]                  @relation("FeedbackAssignee")
+  feedbackResponses          FeedbackResponse[]
+  feedbackNotes              FeedbackInternalNote[]
 
   @@index([email])
   @@index([phone])
@@ -678,6 +707,7 @@ model Permission {
 
   /// Relations
   rolePermissions RolePermission[]
+  workerFarmPermissions WorkerFarmPermission[]
 
   @@index([code])
   @@index([category])
@@ -779,6 +809,7 @@ model Farm {
   inventoryMovements     InventoryMovement[]
   inventoryStockBalances InventoryStockBalance[]
   projects               Project[]
+  feedback               Feedback[]
 
   @@index([ownerId])
   @@index([status])
@@ -802,10 +833,29 @@ model FarmMember {
   /// Relations
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
   farm Farm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  permissionGrants WorkerFarmPermission[]
 
   @@unique([userId, farmId])
   @@index([userId])
   @@index([farmId])
+}
+
+/// Farm-scoped permissions granted to a worker by an authorized farm manager.
+model WorkerFarmPermission {
+  id           String   @id @default(cuid())
+  farmMemberId String
+  permissionId String
+  grantedById  String
+  createdAt    DateTime @default(now())
+
+  farmMember FarmMember @relation(fields: [farmMemberId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantedBy  User       @relation("WorkerPermissionGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+
+  @@unique([farmMemberId, permissionId])
+  @@index([farmMemberId])
+  @@index([permissionId])
+  @@index([grantedById])
 }
 
 model Project {
@@ -2139,10 +2189,141 @@ model Harvest {
 // AUDIT & COMPLIANCE
 // ============================================
 
+/// FAQCategory - normalized global help content category.
+model FAQCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique @db.VarChar(120)
+  description String?  @db.Text
+  displayOrder Int     @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  faqs FAQ[]
+
+  @@index([isActive, displayOrder])
+}
+
+/// FAQ - searchable, publishable global help content.
+model FAQ {
+  id           String    @id @default(cuid())
+  question     String    @db.VarChar(500)
+  answer       String    @db.Text
+  categoryId   String
+  status       FAQStatus @default(DRAFT)
+  displayOrder Int       @default(0)
+  createdById  String
+  updatedById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  category   FAQCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy  User        @relation("FAQCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy  User        @relation("FAQUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  feedback   FAQFeedback[]
+
+  @@index([categoryId, status, displayOrder])
+  @@index([status, updatedAt])
+}
+
+/// FAQFeedback - one helpfulness vote per user and FAQ.
+model FAQFeedback {
+  id        String   @id @default(cuid())
+  faqId     String
+  userId    String?
+  helpful   Boolean
+  createdAt DateTime @default(now())
+
+  faq  FAQ   @relation(fields: [faqId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([faqId, userId])
+  @@index([faqId, helpful])
+}
+
+/// Feedback - user-submitted product feedback with administrator workflow fields.
+model Feedback {
+  id           String           @id @default(cuid())
+  reference    String           @unique @db.VarChar(30)
+  userId       String
+  subject      String           @db.VarChar(200)
+  category     String           @db.VarChar(80)
+  description  String           @db.Text
+  priority     FeedbackPriority @default(MEDIUM)
+  status       FeedbackStatus   @default(NEW)
+  pageUrl      String?          @db.VarChar(500)
+  farmId       String?
+  assignedToId String?
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  user        User                 @relation("FeedbackSubmitter", fields: [userId], references: [id], onDelete: Restrict)
+  assignedTo  User?                @relation("FeedbackAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  farm        Farm?                @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  attachments FeedbackAttachment[]
+  responses   FeedbackResponse[]
+  notes       FeedbackInternalNote[]
+
+  @@index([userId, createdAt])
+  @@index([status, priority, createdAt])
+  @@index([category])
+  @@index([assignedToId])
+  @@index([farmId])
+}
+
+/// FeedbackResponse - administrator response, optionally visible to the submitter.
+model FeedbackResponse {
+  id         String   @id @default(cuid())
+  feedbackId String
+  authorId   String
+  message    String   @db.Text
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([feedbackId, isInternal, createdAt])
+  @@index([authorId])
+}
+
+/// FeedbackInternalNote - administrator-only operational notes.
+model FeedbackInternalNote {
+  id         String   @id @default(cuid())
+  feedbackId String
+  authorId   String
+  note       String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([feedbackId, createdAt])
+  @@index([authorId])
+}
+
+/// FeedbackAttachment - normalized link to the existing media foundation.
+model FeedbackAttachment {
+  id          String   @id @default(cuid())
+  feedbackId  String
+  mediaFileId String
+  createdAt   DateTime @default(now())
+
+  feedback  Feedback  @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+  mediaFile MediaFile @relation(fields: [mediaFileId], references: [id], onDelete: Restrict)
+
+  @@unique([feedbackId, mediaFileId])
+  @@index([mediaFileId])
+}
+
 /// AuditLog - audit trail for important operations
 model AuditLog {
   id     String @id @default(cuid())
-  farmId String
+  farmId String?
   userId String
 
   /// Audit details
@@ -2163,7 +2344,7 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   /// Relations
-  farm Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm Farm? @relation(fields: [farmId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([farmId])
@@ -2181,7 +2362,7 @@ model AuditLog {
 model Notification {
   id      String  @id @default(cuid())
   userId  String
-  farmId  String
+  farmId  String?
   alertId String?
   eventId String?
 
@@ -2205,7 +2386,7 @@ model Notification {
   expiresAt      DateTime?
 
   user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm       Farm                   @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  farm       Farm?                  @relation(fields: [farmId], references: [id], onDelete: Cascade)
   alert      FarmAlert?             @relation(fields: [alertId], references: [id], onDelete: SetNull)
   event      DomainEvent?           @relation(fields: [eventId], references: [id], onDelete: SetNull)
   deliveries NotificationDelivery[]
@@ -2359,6 +2540,8 @@ model MediaFile {
   /// Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  feedbackAttachments FeedbackAttachment[]
 
   @@index([relatedEntityType])
   @@index([relatedEntityId])

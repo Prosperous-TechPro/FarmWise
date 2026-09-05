@@ -1,8 +1,9 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import GlobalFAQButton from '../support/GlobalFAQButton';
 
-export default function DashboardLayout({ children, view, onViewChange, user, isSystemAdmin, onSignOut, onNotifications, loading, notice, onDismissNotice }) {
+export default function DashboardLayout({ children, view, onViewChange, user, isSystemAdmin, isWorker, onSignOut, onNotifications, loading, notice, onDismissNotice }) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const changeView = (nextView) => {
@@ -12,7 +13,7 @@ export default function DashboardLayout({ children, view, onViewChange, user, is
 
   return (
     <div className="dashboard-layout">
-      <Sidebar activeView={view} isOpen={sidebarOpen} isSystemAdmin={isSystemAdmin} onViewChange={changeView} onClose={() => setSidebarOpen(false)} />
+      <Sidebar activeView={view} isOpen={sidebarOpen} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onViewChange={changeView} onClose={() => setSidebarOpen(false)} />
       <div className="dashboard-main">
         <Topbar user={user} onSignOut={onSignOut} onNotifications={onNotifications} onMenu={() => setSidebarOpen(true)} />
         <main className="main-content">
@@ -20,6 +21,7 @@ export default function DashboardLayout({ children, view, onViewChange, user, is
           {loading && <div className="loading-line" aria-label="Loading" />}
           {children}
         </main>
+        <GlobalFAQButton />
       </div>
     </div>
   );

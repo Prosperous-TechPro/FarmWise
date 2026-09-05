@@ -23,6 +23,8 @@ import activityRoutes from './routes/activityRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 import adminDashboardRoutes from './routes/adminDashboardRoutes.js';
+import workerRoutes from './routes/workerRoutes.js';
+import supportRoutes from './routes/supportRoutes.js';
 import communityRoutes from './routes/communityRoutes.js';
 import projectRoutes from './routes/projectRoutes.js';
 import { createEmailProvider } from './utils/emailProvider.js';
@@ -148,6 +150,8 @@ export function createApp() {
   // Dashboard and analytics routes
   app.use('/api/v1', analyticsRoutes);
   app.use('/api/v1', adminDashboardRoutes);
+  app.use('/api/v1', workerRoutes);
+  app.use('/api/v1', supportRoutes);
   app.use('/api/v1/community', communityRoutes);
 
   // ============================================

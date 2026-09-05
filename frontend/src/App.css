@@ -18,6 +18,43 @@
 .activity-detail-grid strong { color:var(--ink); font-size:11px; text-transform:uppercase; letter-spacing:.7px; }
 .activity-detail-grid span { overflow-wrap:anywhere; }
 @media (max-width:650px) { .activity-detail-grid { grid-template-columns:1fr; } }
+.faq-float-button { position:fixed; right:24px; bottom:24px; z-index:30; display:flex; align-items:center; gap:9px; min-height:48px; padding:0 16px 0 11px; color:#fff; border:0; border-radius:28px; background:var(--green); box-shadow:0 14px 30px rgba(23,58,36,.2); cursor:pointer; font-weight:700; }
+.faq-float-button span { display:grid; place-items:center; width:27px; height:27px; border-radius:50%; color:var(--green); background:#e5f3c9; font-size:18px; }
+.support-backdrop { position:fixed; inset:0; z-index:40; display:grid; place-items:end; padding:24px; background:rgba(13,31,20,.28); }
+.support-dialog { width:min(520px,100%); max-height:min(760px,calc(100vh - 48px)); overflow:auto; padding:28px; outline:0; border:1px solid var(--line); border-radius:10px; background:var(--white); box-shadow:0 28px 90px rgba(13,31,20,.25); }
+.support-dialog-header,.support-form-heading,.support-admin-row,.support-helpful,.support-tabs { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.support-dialog-header h2,.support-form-heading h3 { margin:0; }
+.icon-button { width:36px; height:36px; border:1px solid var(--line); border-radius:50%; color:var(--ink); background:transparent; cursor:pointer; font-size:20px; }
+.support-search { display:block; margin:24px 0 12px; }
+.support-categories { display:flex; flex-wrap:wrap; gap:7px; margin:10px 0 18px; }
+.support-categories span { padding:6px 9px; border-radius:14px; color:var(--green); background:#edf5e3; font-size:11px; font-weight:700; }
+.support-faq-list { display:grid; gap:8px; }
+.support-faq-item { border-bottom:1px solid var(--line); }
+.support-faq-question { display:flex; justify-content:space-between; width:100%; padding:15px 0; border:0; color:var(--ink); background:transparent; text-align:left; cursor:pointer; font-weight:700; }
+.support-faq-question span { color:var(--green); font-size:18px; }
+.support-faq-answer { padding:0 0 16px; color:var(--muted); line-height:1.6; }
+.support-helpful { justify-content:flex-start; margin-top:12px; font-size:12px; }
+.support-helpful button,.support-tabs button { padding:7px 12px; border:1px solid var(--line); border-radius:16px; color:var(--green); background:transparent; cursor:pointer; }
+.support-feedback-button { width:100%; margin-top:22px; justify-content:center; }
+.support-form { display:grid; gap:14px; margin-top:18px; }
+.support-admin-grid { display:grid; grid-template-columns:minmax(300px, .9fr) minmax(340px, 1.1fr); gap:20px; }
+.support-admin-row { width:100%; padding:14px 0; border:0; border-bottom:1px solid var(--line); color:var(--ink); background:transparent; text-align:left; cursor:pointer; }
+.support-admin-row span { display:grid; gap:4px; min-width:0; }
+.support-admin-row small { color:var(--muted); }
+.filter-row { display:flex; gap:10px; margin:14px 0; }
+.filter-row input { min-width:0; margin:0; }
+.filter-row select { margin:0; }
+.support-admin-detail hr { border:0; border-top:1px solid var(--line); margin:22px 0; }
+.support-admin-detail h4 { margin:18px 0 8px; }
+.support-note { padding:11px 13px; margin:8px 0; border-left:3px solid var(--green); background:#f4f8ee; }
+.support-note.private { border-left-color:#bd8b38; background:#fff8e9; }
+.support-note p { margin:0 0 5px; }
+.support-inline-form { display:grid; gap:8px; margin:10px 0 20px; }
+.support-inline-form button { justify-self:start; }
+.support-empty { display:grid; place-items:center; min-height:240px; }
+.support-tabs { justify-content:flex-start; margin-bottom:18px; }
+.support-tabs button.active { color:#fff; background:var(--green); }
+@media (max-width:700px) { .faq-float-button { right:14px; bottom:14px; } .support-backdrop { padding:0; place-items:stretch; } .support-dialog { width:100%; max-height:100vh; border:0; border-radius:0; } .support-admin-grid { grid-template-columns:1fr; } }
 .record-content-panel h3 { margin:0 0 8px; font-size:21px; }
 .record-content-panel .muted { margin:0; }
 .record-detail-actions { display:flex; align-items:center; gap:10px; min-width:280px; }

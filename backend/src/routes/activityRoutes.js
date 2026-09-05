@@ -20,7 +20,7 @@ import {
   listProductionRecords,
   updateActivity,
 } from '../controllers/activityController.js';
-import { authenticate, authorize, requireFarmAccess, requireFarmRole } from '../middleware/authMiddleware.js';
+import { authenticate, authorize, requireFarmAccess, requireFarmRole, requirePermission } from '../middleware/authMiddleware.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = express.Router();
@@ -32,7 +32,7 @@ router.post('/farms/:farmId/activity-types', requireFarmAccess, requireFarmRole(
 
 router.get('/farms/:farmId/activities', requireFarmAccess, asyncHandler(listActivities));
 router.get('/farms/:farmId/activities/:activityId', requireFarmAccess, asyncHandler(getActivity));
-router.post('/farms/:farmId/activities', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(createActivity));
+router.post('/farms/:farmId/activities', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), requirePermission('CREATE_ACTIVITY'), asyncHandler(createActivity));
 router.patch('/farms/:farmId/activities/:activityId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(updateActivity));
 router.delete('/farms/:farmId/activities/:activityId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(deleteActivity));
 

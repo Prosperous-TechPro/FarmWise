@@ -6,7 +6,7 @@ const roleDefinitions = [
   { name: 'SUPERADMIN', description: 'Platform-wide system administrator with full operational oversight.' },
   { name: 'ADMIN', description: 'Admin with elevated platform management privileges bounded by explicit policy.' },
   { name: 'FARM_OWNER', description: 'Owner of one or more farms with full ownership-level farm access.' },
-  { name: 'WORKER', description: 'Farm worker with access limited to explicitly granted permissions.' },
+  { name: 'FARM_WORKER', description: 'Farm worker with access limited to explicitly granted permissions.' },
 ];
 
 const permissionDefinitions = [
@@ -25,6 +25,8 @@ const permissionDefinitions = [
   { code: 'UPDATE_INVENTORY_RECORD', name: 'Update Inventory Record', description: 'Modify inventory records.', category: 'inventory' },
   { code: 'RECORD_FEEDING', name: 'Record Feeding', description: 'Record feeding operations for a farm.', category: 'operations' },
   { code: 'RECORD_VACCINATION', name: 'Record Vaccination', description: 'Log vaccination events.', category: 'operations' },
+  { code: 'CREATE_ACTIVITY', name: 'Create Activity', description: 'Create structured farm activity records.', category: 'operations' },
+  { code: 'UPDATE_ASSIGNED_TASK', name: 'Update Assigned Task', description: 'Update tasks assigned to the worker.', category: 'operations' },
   { code: 'VIEW_EXPENSES', name: 'View Expenses', description: 'Read expense records for a farm.', category: 'finance' },
   { code: 'VIEW_REVENUE', name: 'View Revenue', description: 'Read revenue records for a farm.', category: 'finance' },
   { code: 'VIEW_PROFIT', name: 'View Profit', description: 'Access profit-related financial reporting.', category: 'finance' },
@@ -36,20 +38,31 @@ const permissionDefinitions = [
   { code: 'VIEW_SYSTEM_REPORTS', name: 'View System Reports', description: 'Read administrator reports and summaries.', category: 'admin' },
   { code: 'MANAGE_USERS', name: 'Manage Users', description: 'Manage user accounts and role assignments.', category: 'admin' },
   { code: 'VIEW_AUDIT_LOGS', name: 'View Audit Logs', description: 'Read audit history for privileged actions.', category: 'admin' },
+  { code: 'MANAGE_FAQS', name: 'Manage FAQs', description: 'Create, publish, and maintain global FAQ content.', category: 'support' },
+  { code: 'MANAGE_FEEDBACK', name: 'Manage Feedback', description: 'Review and process user feedback submissions.', category: 'support' },
+];
+
+const faqCategories = [
+  { name: 'Account & Authentication', description: 'Sign-in, verification, and account access.', displayOrder: 1 },
+  { name: 'Farms & Operations', description: 'Farm, crop, livestock, inventory, and task workflows.', displayOrder: 2 },
+  { name: 'Workers', description: 'Worker assignments, tasks, and permissions.', displayOrder: 3 },
+  { name: 'Finance & Reports', description: 'Expenses, sales, reports, and analytics.', displayOrder: 4 },
+  { name: 'Community & Messaging', description: 'Community posts and private conversations.', displayOrder: 5 },
+  { name: 'Security & General', description: 'Security, privacy, and general FarmWise questions.', displayOrder: 6 },
 ];
 
 const rolePermissions = {
   SUPERADMIN: permissionDefinitions.map(({ code }) => code),
   ADMIN: [
     'VIEW_FARM', 'VIEW_CROP', 'VIEW_LIVESTOCK', 'VIEW_INVENTORY', 'VIEW_EXPENSES', 'VIEW_REVENUE', 'VIEW_PROFIT',
-    'MANAGE_WORKERS', 'CREATE_POST', 'COMMENT_POST', 'LIKE_POST', 'VIEW_SYSTEM_REPORTS', 'MANAGE_USERS', 'VIEW_AUDIT_LOGS', 'MANAGE_PLATFORM',
+    'MANAGE_WORKERS', 'MANAGE_FAQS', 'MANAGE_FEEDBACK', 'CREATE_POST', 'COMMENT_POST', 'LIKE_POST', 'VIEW_SYSTEM_REPORTS', 'MANAGE_USERS', 'VIEW_AUDIT_LOGS', 'MANAGE_PLATFORM',
   ],
   FARM_OWNER: [
     'VIEW_FARM', 'MANAGE_FARM', 'VIEW_CROP', 'CREATE_CROP_RECORD', 'UPDATE_CROP_RECORD', 'RECORD_CROP_ACTIVITY', 'RECORD_HARVEST', 'VIEW_LIVESTOCK', 'CREATE_LIVESTOCK_RECORD', 'UPDATE_LIVESTOCK_RECORD',
     'VIEW_INVENTORY', 'CREATE_INVENTORY_RECORD', 'UPDATE_INVENTORY_RECORD', 'RECORD_FEEDING', 'RECORD_VACCINATION', 'VIEW_EXPENSES', 'VIEW_REVENUE', 'VIEW_PROFIT',
-    'MANAGE_WORKERS', 'CREATE_POST', 'COMMENT_POST', 'LIKE_POST',
+    'MANAGE_WORKERS', 'CREATE_ACTIVITY', 'CREATE_POST', 'COMMENT_POST', 'LIKE_POST',
   ],
-  WORKER: [
+  FARM_WORKER: [
     'VIEW_FARM', 'VIEW_CROP', 'CREATE_CROP_RECORD', 'UPDATE_CROP_RECORD', 'RECORD_CROP_ACTIVITY', 'VIEW_LIVESTOCK', 'CREATE_LIVESTOCK_RECORD', 'UPDATE_LIVESTOCK_RECORD',
     'VIEW_INVENTORY', 'CREATE_INVENTORY_RECORD', 'UPDATE_INVENTORY_RECORD', 'RECORD_FEEDING', 'RECORD_VACCINATION', 'CREATE_POST', 'COMMENT_POST', 'LIKE_POST',
   ],
@@ -72,6 +85,10 @@ async function main() {
       update: { name: permission.name, description: permission.description, category: permission.category },
       create: permission,
     });
+  }
+
+  for (const category of faqCategories) {
+    await prisma.fAQCategory.upsert({ where: { name: category.name }, update: category, create: category });
   }
 
   for (const [roleName, permissionCodes] of Object.entries(rolePermissions)) {

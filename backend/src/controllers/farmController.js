@@ -16,6 +16,7 @@ import {
 } from '../services/farmService.js';
 import { findUserByEmail } from '../repositories/userRepository.js';
 import { addFarmWorker, findFarmMember, listFarmWorkers, updateFarmWorker } from '../repositories/farmRepository.js';
+import { getMemberPermissions, listPermissionDefinitions, replaceWorkerFarmPermissions } from '../repositories/workerRepository.js';
 
 export async function listFarms(req, res) {
   const farms = await listUserFarmsService(req.user.id, req.user.roles);
@@ -96,6 +97,21 @@ export async function removeWorker(req, res) {
   if (!member || member.role === 'OWNER') return res.status(404).json({ success: false, message: 'Worker not found' });
   await updateFarmWorker(member.id, { status: 'INACTIVE' });
   return res.status(200).json({ success: true, message: 'Worker removed from farm successfully' });
+}
+
+export async function listWorkerPermissions(req, res) {
+  const member = await findFarmMember(req.params.memberId);
+  if (!member || member.farmId !== req.params.farmId || !['WORKER', 'FARM_WORKER'].includes(member.role)) return res.status(404).json({ success: false, message: 'Worker not found' });
+  const [permissions, definitions] = await Promise.all([getMemberPermissions(req.params.farmId, member.id), listPermissionDefinitions()]);
+  return res.json({ success: true, data: { granted: permissions.map(({ permission }) => permission.code), available: definitions } });
+}
+
+export async function updateWorkerPermissions(req, res) {
+  const permissionCodes = Array.isArray(req.body.permissionCodes) ? Array.from(new Set(req.body.permissionCodes.filter((code) => typeof code === 'string').map((code) => code.trim()).filter(Boolean))) : null;
+  if (!permissionCodes) return res.status(400).json({ success: false, message: 'permissionCodes must be an array' });
+  const grants = await replaceWorkerFarmPermissions(req.params.farmId, req.params.memberId, permissionCodes, req.user.id);
+  if (!grants) return res.status(404).json({ success: false, message: 'Worker not found' });
+  return res.json({ success: true, data: grants.map(({ permission }) => permission.code), message: 'Worker permissions updated successfully' });
 }
 
 export async function listFields(req, res) {

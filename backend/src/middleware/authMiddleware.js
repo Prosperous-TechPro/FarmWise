@@ -9,6 +9,7 @@ import { getFarmAccess, getFarmById } from '../repositories/farmRepository.js';
 import { isSessionValid } from '../repositories/authSessionRepository.js';
 import logger from '../utils/logger.js';
 import config from '../config/index.js';
+import { listWorkerFarmPermissions } from '../repositories/workerRepository.js';
 
 export function normalizeRoleName(role) {
   if (!role || typeof role !== 'string') return null;
@@ -201,8 +202,9 @@ export function requirePermission(permissions) {
 
       const normalizedRequiredPermissions = requiredPermissions.map((value) => String(value).trim()).filter(Boolean);
 
-      // Get user permissions from database
-      const userPermissions = await getUserPermissions(req.user.id);
+      const userPermissions = (req.farmAccess?.role === 'WORKER' || req.farmAccess?.role === 'FARM_WORKER')
+        ? (req.farm?.id ? (await listWorkerFarmPermissions(req.farm.id, req.user.id)).map((grant) => grant.permission.code) : [])
+        : await getUserPermissions(req.user.id);
       const normalizedUserPermissions = Array.from(new Set((userPermissions || []).map((permission) => String(permission).trim()).filter(Boolean)));
 
       const hasPermission = normalizedRequiredPermissions.some((perm) => normalizedUserPermissions.includes(perm));

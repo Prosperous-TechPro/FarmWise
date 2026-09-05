@@ -4,7 +4,7 @@ import { authenticate, authorize, requireRole } from '../middleware/authMiddlewa
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = express.Router();
-router.use(authenticate, authorize, requireRole(['FARM_WORKER', 'WORKER']));
+router.use('/worker', authenticate, authorize, requireRole(['FARM_WORKER', 'WORKER']));
 router.get('/worker/dashboard', asyncHandler(workerDashboard));
 router.get('/worker/tasks', asyncHandler(workerTasks));
 router.patch('/worker/tasks/:taskId', asyncHandler(updateAssignedTask));

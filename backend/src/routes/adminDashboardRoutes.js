@@ -4,8 +4,7 @@ import { authenticate, authorize, requirePermission, requireRole, requireSuperAd
 import { adminDashboardSummary, getUsers, getWorkers, updateUserStatus, addAdmin, removeAdmin, getFarms, updateFarm, getActivities, updateActivity } from '../controllers/adminDashboardController.js';
 
 const router = express.Router();
-router.use(authenticate, authorize);
-router.use(requireRole(['ADMIN', 'SUPERADMIN']));
+router.use('/admin', authenticate, authorize, requireRole(['ADMIN', 'SUPERADMIN']));
 
 router.get('/admin/dashboard/summary', asyncHandler(adminDashboardSummary));
 router.get('/admin/users', asyncHandler(getUsers));

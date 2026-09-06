@@ -34,6 +34,8 @@ import {
   findPendingRegistrationByEmail,
   findPendingRegistrationByPhone,
 } from '../repositories/pendingRegistrationRepository.js';
+import { getActiveWorkerOnboarding } from './workerOnboardingService.js';
+import { rotateWorkerOnboardingToken } from '../repositories/workerOnboardingRepository.js';
 
 /**
  * Register a new user
@@ -249,7 +251,9 @@ export async function login(options) {
       throw new Error('Invalid credentials');
     }
 
-    if (user.status !== 'ACTIVE' || (!user.emailVerified && !user.phoneVerified)) {
+    const onboarding = await getActiveWorkerOnboarding(user.id);
+
+    if (user.status !== 'ACTIVE' || (!user.emailVerified && !user.phoneVerified && !onboarding)) {
       throw new Error('Your account must be active and verified before logging in');
     }
 
@@ -263,6 +267,12 @@ export async function login(options) {
 
     if (!isPasswordValid) {
       throw new Error('Invalid credentials');
+    }
+
+    if (onboarding && user.phoneVerified === false) {
+      const onboardingToken = generateToken(32);
+      await rotateWorkerOnboardingToken(onboarding.id, hashValue(onboardingToken));
+      return { success: true, onboardingRequired: true, onboardingToken, onboardingStatus: onboarding.status, worker: { firstName: user.firstName, lastName: user.lastName, phone: user.phone }, farm: onboarding.farm };
     }
 
     // Generate tokens

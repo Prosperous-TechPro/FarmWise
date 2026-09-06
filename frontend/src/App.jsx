@@ -7,6 +7,7 @@ import LivestockRecords from './components/LivestockRecords';
 import FinanceRecords from './components/FinanceRecords';
 import InventoryRecords from './components/InventoryRecords';
 import AdminSupport, { FeedbackDetail } from './components/support/AdminSupport';
+import WorkerRegistration from './components/workers/WorkerRegistration';
 import './App.css';
 
 const TOKEN_KEY = 'farmwise.accessToken';
@@ -186,7 +187,9 @@ function AppContent() {
     if (pathname === '/register') return <Register onNavigate={navigate} />;
     if (pathname === '/verify-otp') return <VerifyOtp onNavigate={navigate} />;
     if (pathname === '/forgot-password') return <ForgotPassword onNavigate={navigate} />;
+    if (pathname.startsWith('/worker-onboarding/')) return <WorkerOnboarding token={pathname.split('/')[2]} onNavigate={navigate} />;
     return <Login onLogin={(session) => {
+    if (session.onboardingRequired) { navigate(`/worker-onboarding/${session.onboardingToken}`); return; }
     localStorage.setItem(TOKEN_KEY, session.accessToken);
     localStorage.setItem('farmwise.refreshToken', session.refreshToken || '');
     localStorage.setItem('farmwise.sessionId', session.sessionId || '');
@@ -209,7 +212,7 @@ function AppContent() {
         {view === 'admin-farms' && <AdminFarmManagement />}
         {view === 'feedback' && pathname.startsWith('/feedback/') && <FeedbackDetail feedbackId={pathname.split('/')[2]} onNavigate={navigate} />}
         {view === 'feedback' && !pathname.startsWith('/feedback/') && <AdminSupport onNavigate={navigate} />}
-        {view === 'workers' && <WorkerManagement farms={farms} />}
+        {view === 'workers' && <><WorkerRegistration farms={farms} /><WorkerManagement farms={farms} /></>}
         {view === 'analytics' && <Analytics overview={overview} />}
     </DashboardLayout>
   );
@@ -237,6 +240,14 @@ function AboutFarmWise() {
     'Get answers through the FAQ and help system.', 'Provide feedback to help improve FarmWise.',
   ];
   return <section className="about-page"><div className="section-heading"><div><p className="eyebrow">ABOUT FARMWISE</p><h2>Make every season count.</h2><p className="muted">A simple workspace for the decisions that keep your farm moving.</p></div></div><div className="about-grid"><article className="panel about-aim"><p className="eyebrow">OUR AIM</p><h3>Farm management, made easier.</h3><p>FarmWise aims to make farm management easier by helping farmers organize their farm activities, records, resources, and finances in one simple system.</p></article><article className="panel"><p className="eyebrow">OUR OBJECTIVES</p><h3>What FarmWise helps you do</h3><ul className="about-objectives">{objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul></article></div></section>;
+}
+
+function WorkerOnboarding({ token, onNavigate }) {
+  const [worker, setWorker] = useState(null); const [error, setError] = useState(''); const [sent, setSent] = useState(false); const [code, setCode] = useState(''); const [newPassword, setNewPassword] = useState(''); const [confirmPassword, setConfirmPassword] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { apiClient.get(`/worker-onboarding/${token}`).then((result) => setWorker(result.data.worker)).catch((requestError) => setError(requestError.message || 'This onboarding link is invalid or expired.')); }, [token]);
+  const sendOtp = async () => { setBusy(true); setError(''); try { await apiClient.post(`/worker-onboarding/${token}/send-otp`); setSent(true); } catch (requestError) { setError(requestError.message || 'Unable to send verification code.'); } finally { setBusy(false); } };
+  const complete = async (event) => { event.preventDefault(); setBusy(true); setError(''); try { await apiClient.post(`/worker-onboarding/${token}/complete`, { code, newPassword, confirmPassword }); onNavigate('/'); } catch (requestError) { setError(requestError.message || 'Unable to complete onboarding.'); } finally { setBusy(false); } };
+  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">WORKER ONBOARDING</p><h1>Welcome to FarmWise.</h1><p>Set up your secure worker account before entering the farm workspace.</p></div><div className="season-card"><span>FIRST LOGIN</span><strong>Verify. Protect. Grow.</strong><small>Your new password stays private.</small></div></div><form className="auth-form" onSubmit={complete}><p className="eyebrow">ACCOUNT SETUP</p><h2>{sent ? 'Create your password' : 'Verify your phone'}</h2><p className="muted">{worker ? `Welcome ${worker.firstName}. Your registered phone is ${worker.phone?.slice(0, 4)}••••${worker.phone?.slice(-2)}.` : 'Loading your onboarding details...'}</p>{error && <div className="notice error" role="alert">{error}</div>}{!sent ? <button type="button" className="primary-button" onClick={sendOtp} disabled={busy || !worker}>{busy ? 'Sending code...' : 'Send verification code'} <span>→</span></button> : <><label>Verification code<input inputMode="numeric" pattern="[0-9]{6}" maxLength="6" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} required /></label><label>New password<PasswordInput value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" /></label><label>Confirm new password<PasswordInput value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Completing...' : 'Complete onboarding'} <span>→</span></button></>}</form></div>;
 }
 
 function Login({ onLogin, onRegister }) {

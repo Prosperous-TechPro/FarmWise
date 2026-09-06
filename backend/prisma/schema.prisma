@@ -555,6 +555,8 @@ model User {
   assignedFeedback           Feedback[]                  @relation("FeedbackAssignee")
   feedbackResponses          FeedbackResponse[]
   feedbackNotes              FeedbackInternalNote[]
+  workerOnboardings          WorkerOnboarding[]
+  createdWorkerOnboardings   WorkerOnboarding[]          @relation("WorkerOnboardingCreator")
 
   @@index([email])
   @@index([phone])
@@ -706,7 +708,7 @@ model Permission {
   updatedAt DateTime @updatedAt
 
   /// Relations
-  rolePermissions RolePermission[]
+  rolePermissions       RolePermission[]
   workerFarmPermissions WorkerFarmPermission[]
 
   @@index([code])
@@ -810,6 +812,7 @@ model Farm {
   inventoryStockBalances InventoryStockBalance[]
   projects               Project[]
   feedback               Feedback[]
+  workerOnboardings      WorkerOnboarding[]
 
   @@index([ownerId])
   @@index([status])
@@ -831,13 +834,35 @@ model FarmMember {
   updatedAt DateTime @updatedAt
 
   /// Relations
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farm Farm  @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  user             User?                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm             Farm                   @relation(fields: [farmId], references: [id], onDelete: Cascade)
   permissionGrants WorkerFarmPermission[]
 
   @@unique([userId, farmId])
   @@index([userId])
   @@index([farmId])
+}
+
+model WorkerOnboarding {
+  id              String    @id @default(cuid())
+  userId          String
+  farmId          String
+  createdById     String
+  tokenHash       String    @unique @db.VarChar(64)
+  status          String    @default("PHONE_VERIFICATION_REQUIRED") @db.VarChar(50)
+  expiresAt       DateTime
+  phoneVerifiedAt DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user      User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farm      Farm @relation(fields: [farmId], references: [id], onDelete: Cascade)
+  createdBy User @relation("WorkerOnboardingCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([userId, status])
+  @@index([farmId, status])
+  @@index([expiresAt])
 }
 
 /// Farm-scoped permissions granted to a worker by an authorized farm manager.
@@ -991,11 +1016,11 @@ model CropVariety {
 
 /// CropCycle - represents a planting cycle for a specific crop
 model CropCycle {
-  id        String  @id @default(cuid())
-  farmId    String
-  fieldId   String
-  cropId    String
-  varietyId String?
+  id                  String          @id @default(cuid())
+  farmId              String
+  fieldId             String
+  cropId              String
+  varietyId           String?
   /// Cycle information
   cycleName           String?         @db.VarChar(150)
   season              String?         @db.VarChar(50)
@@ -2191,13 +2216,13 @@ model Harvest {
 
 /// FAQCategory - normalized global help content category.
 model FAQCategory {
-  id          String   @id @default(cuid())
-  name        String   @unique @db.VarChar(120)
-  description String?  @db.Text
-  displayOrder Int     @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  name         String   @unique @db.VarChar(120)
+  description  String?  @db.Text
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   faqs FAQ[]
 
@@ -2217,10 +2242,10 @@ model FAQ {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  category   FAQCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  createdBy  User        @relation("FAQCreator", fields: [createdById], references: [id], onDelete: Restrict)
-  updatedBy  User        @relation("FAQUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
-  feedback   FAQFeedback[]
+  category  FAQCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy User          @relation("FAQCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  updatedBy User          @relation("FAQUpdater", fields: [updatedById], references: [id], onDelete: Restrict)
+  feedback  FAQFeedback[]
 
   @@index([categoryId, status, displayOrder])
   @@index([status, updatedAt])
@@ -2259,9 +2284,9 @@ model Feedback {
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 
-  user        User                 @relation("FeedbackSubmitter", fields: [userId], references: [id], onDelete: Restrict)
-  assignedTo  User?                @relation("FeedbackAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
-  farm        Farm?                @relation(fields: [farmId], references: [id], onDelete: SetNull)
+  user        User                   @relation("FeedbackSubmitter", fields: [userId], references: [id], onDelete: Restrict)
+  assignedTo  User?                  @relation("FeedbackAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  farm        Farm?                  @relation(fields: [farmId], references: [id], onDelete: SetNull)
   attachments FeedbackAttachment[]
   responses   FeedbackResponse[]
   notes       FeedbackInternalNote[]
@@ -2322,7 +2347,7 @@ model FeedbackAttachment {
 
 /// AuditLog - audit trail for important operations
 model AuditLog {
-  id     String @id @default(cuid())
+  id     String  @id @default(cuid())
   farmId String?
   userId String
 
@@ -2345,7 +2370,7 @@ model AuditLog {
 
   /// Relations
   farm Farm? @relation(fields: [farmId], references: [id], onDelete: Cascade)
-  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user User  @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([farmId])
   @@index([userId])

@@ -393,6 +393,7 @@ export async function loginEndpoint(req, res) {
       success: true,
       message: 'Login successful',
       data: {
+        ...(result.onboardingRequired ? { onboardingRequired: true, onboardingToken: result.onboardingToken, onboardingStatus: result.onboardingStatus, worker: result.worker, farm: result.farm } : {}),
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
         user: result.user,

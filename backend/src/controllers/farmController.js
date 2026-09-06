@@ -17,6 +17,7 @@ import {
 import { findUserByEmail } from '../repositories/userRepository.js';
 import { addFarmWorker, findFarmMember, listFarmWorkers, updateFarmWorker } from '../repositories/farmRepository.js';
 import { getMemberPermissions, listPermissionDefinitions, replaceWorkerFarmPermissions } from '../repositories/workerRepository.js';
+import { registerWorker } from '../services/workerOnboardingService.js';
 
 export async function listFarms(req, res) {
   const farms = await listUserFarmsService(req.user.id, req.user.roles);
@@ -80,6 +81,11 @@ export async function addWorker(req, res) {
   return res.status(201).json({ success: true, data: member, message: 'Worker added to farm successfully' });
 }
 
+export async function registerFarmWorker(req, res) {
+  const result = await registerWorker(req.user.id, req.params.farmId, req.body, req);
+  return res.status(201).json({ success: true, data: result, message: 'Worker registered successfully. Provide the temporary password securely.' });
+}
+
 export async function updateWorker(req, res) {
   const member = await findFarmMember(req.params.memberId);
   if (member?.farmId !== req.params.farmId) return res.status(404).json({ success: false, message: 'Worker not found' });
@@ -126,7 +132,6 @@ export async function listFields(req, res) {
 export async function createField(req, res) {
   const field = await createFieldService(req.params.farmId, req.body);
   return res.status(201).json({
-    success: true,
     data: field,
     message: 'Field created successfully',
   });

@@ -20,6 +20,7 @@ import {
   removeWorker,
   listWorkerPermissions,
   updateWorkerPermissions,
+  registerFarmWorker,
 } from '../controllers/farmController.js';
 import { authenticate, authorize, requireFarmAccess, requireFarmRole } from '../middleware/authMiddleware.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
@@ -36,6 +37,7 @@ router.put('/:farmId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']),
 router.delete('/:farmId', requireFarmAccess, requireFarmRole(['OWNER']), asyncHandler(deleteFarm));
 router.get('/:farmId/workers', requireFarmAccess, asyncHandler(listWorkers));
 router.post('/:farmId/workers', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(addWorker));
+router.post('/:farmId/worker-onboarding', requireFarmAccess, requireFarmRole(['OWNER']), asyncHandler(registerFarmWorker));
 router.patch('/:farmId/workers/:memberId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(updateWorker));
 router.delete('/:farmId/workers/:memberId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(removeWorker));
 router.get('/:farmId/workers/:memberId/permissions', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER']), asyncHandler(listWorkerPermissions));

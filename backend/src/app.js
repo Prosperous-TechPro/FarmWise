@@ -15,6 +15,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/logger.js';
 import authRoutes from './routes/authRoutes.js';
 import farmRoutes from './routes/farmRoutes.js';
+import workerOnboardingRoutes from './routes/workerOnboardingRoutes.js';
 import livestockRoutes from './routes/livestockRoutes.js';
 import cropRoutes from './routes/cropRoutes.js';
 import financialRoutes from './routes/financialRoutes.js';
@@ -124,6 +125,7 @@ export function createApp() {
 
   // Authentication routes
   app.use('/api/v1/auth', authRoutes);
+  app.use('/api/v1/worker-onboarding', workerOnboardingRoutes);
 
   // Farm management routes
   app.use('/api/v1/farms', farmRoutes);

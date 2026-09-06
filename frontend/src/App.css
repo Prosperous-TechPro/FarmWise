@@ -1,4 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+.community-media-draft { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:14px; }
+.community-draft-item { display:grid; gap:8px; padding:10px; border:1px solid var(--line); border-radius:5px; background:#f6faef; }
+.community-draft-item img,.community-draft-item video { width:100%; max-height:220px; border-radius:4px; object-fit:contain; background:#17241c; }
+.community-draft-item label { margin:0; }
+.community-draft-item input { margin-top:4px; padding:8px 9px; background:var(--white); }
+.community-media-item { min-width:0; overflow:hidden; border:1px solid var(--line); border-radius:5px; background:#f6faef; }
+.community-media-preview { display:grid; place-items:center; min-height:120px; }
+.community-media img,.community-media video { display:block; width:100%; max-height:340px; border-radius:5px 5px 0 0; object-fit:cover; background:#17241c; }
+.video-volume-control { width:100%; }
+.video-volume-control label { display:flex; align-items:center; gap:8px; padding:6px 9px; color:var(--muted); font-size:11px; }
+.video-volume-control input[type="range"] { height:4px; margin:0; padding:0; accent-color:var(--green); }
+.media-download { display:block; padding:8px 10px; color:var(--green); border-top:1px solid var(--line); font-size:12px; font-weight:700; text-align:center; text-decoration:none; }
+.media-download:hover { background:#e3f0c7; }
 .liker-summary { flex:1; min-width:0; color:var(--muted); font-size:11px; overflow-wrap:anywhere; }
 .comment time { display:block; margin-top:4px; color:#9aa69d; font-size:10px; }
 .comments-panel { padding-top:14px; } .comment-list { display:grid; gap:10px; padding:12px; background:#f6faef; border-radius:5px; } .comment strong { font-size:12px; } .comment p { margin:2px 0 0; color:var(--muted); font-size:13px; } .comment-form { display:flex; gap:8px; margin-top:10px; } .comment-form input { margin:0; } .comment-form .primary-button { flex:0 0 auto; }

@@ -495,7 +495,7 @@ enum DomainEventStatus {
 /// User entity - represents an individual user
 model User {
   id                String  @id @default(cuid())
-  email             String  @unique @db.VarChar(255)
+  email             String? @unique @db.VarChar(255)
   phone             String? @unique @db.VarChar(20)
   firstName         String  @db.VarChar(100)
   lastName          String  @db.VarChar(100)
@@ -566,7 +566,7 @@ model User {
 /// Registration data retained until the selected OTP is verified
 model PendingRegistration {
   id                 String     @id @default(cuid())
-  email              String     @unique @db.VarChar(255)
+  email              String?    @unique @db.VarChar(255)
   phone              String     @unique @db.VarChar(20)
   firstName          String     @db.VarChar(100)
   lastName           String     @db.VarChar(100)

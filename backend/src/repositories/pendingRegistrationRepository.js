@@ -8,7 +8,7 @@ import prisma from '../lib/prisma.js';
 export async function createPendingRegistration(data) {
   return prisma.pendingRegistration.create({
     data: {
-      email: data.email.toLowerCase(),
+      email: data.email ? data.email.toLowerCase() : null,
       phone: data.phone,
       firstName: data.firstName,
       lastName: data.lastName,

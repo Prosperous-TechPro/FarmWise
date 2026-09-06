@@ -41,10 +41,9 @@ function validateNameField(value, fieldName) {
 export function validateRegistration(data) {
   const errors = {};
 
-  // Validate email
-  if (!data.email || typeof data.email !== 'string') {
-    errors.email = 'Email is required';
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+  // Email is optional; SMS is required when no email is provided.
+  const email = typeof data.email === 'string' ? data.email.trim() : '';
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errors.email = 'Invalid email address';
   }
 
@@ -89,6 +88,8 @@ export function validateRegistration(data) {
   // Validate verification method
   if (!data.verificationMethod || !['EMAIL', 'SMS'].includes(data.verificationMethod)) {
     errors.verificationMethod = 'Verification method must be EMAIL or SMS';
+  } else if (!email && data.verificationMethod !== 'SMS') {
+    errors.verificationMethod = 'SMS verification is required when email is not provided';
   }
 
   // If valid, normalize data
@@ -96,7 +97,7 @@ export function validateRegistration(data) {
   if (Object.keys(errors).length === 0) {
     const phoneResult = normalizePhoneNumber(data.phone);
     normalizedData = {
-      email: data.email.toLowerCase().trim(),
+      email: email ? email.toLowerCase() : null,
       phone: phoneResult.normalizedNumber,
       firstName: firstNameValidation.normalized,
       lastName: lastNameValidation.normalized,

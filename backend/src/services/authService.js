@@ -56,7 +56,7 @@ export async function createPendingRegistration(options) {
   const { email, phone, firstName, lastName, password, verificationMethod } = options;
 
   try {
-    if (await emailExists(email) || await findPendingRegistrationByEmail(email)) {
+    if (email && (await emailExists(email) || await findPendingRegistrationByEmail(email))) {
       throw new Error('Email address is already registered');
     }
 

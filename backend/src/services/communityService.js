@@ -17,6 +17,7 @@ import {
 
 const categories = new Set(['Farming Tips', 'Livestock', 'Crops', 'Poultry', 'Pig Farming', 'Animal Health', 'Farm Management', 'Agriculture Business', 'Equipment', 'Harvest', 'Farm Experience', 'Question', 'General Agriculture']);
 const reportReasons = new Set(['SPAM', 'HARASSMENT', 'OFFENSIVE_CONTENT', 'MISLEADING_INFORMATION', 'INAPPROPRIATE_MEDIA', 'OTHER']);
+const MAX_VIDEO_DATA_URL_LENGTH = 4.5 * 1024 * 1024;
 
 function error(message, statusCode = 400) { const err = new Error(message); err.statusCode = statusCode; return err; }
 function cleanText(value, max) { return typeof value === 'string' ? value.trim().slice(0, max) : ''; }
@@ -25,7 +26,7 @@ function validateMedia(media = []) {
   return media.map((item) => {
     if (!item || !['image', 'video'].includes(item.mediaType) || typeof item.dataUrl !== 'string') throw error('Invalid community media');
     const allowed = item.mediaType === 'image' ? /^data:image\/(png|jpeg|jpg|webp);base64,/ : /^data:video\/(mp4|webm);base64,/;
-    if (!allowed.test(item.dataUrl) || item.dataUrl.length > (item.mediaType === 'image' ? 5 : 25) * 1024 * 1024) throw error('Community media type or size is invalid');
+    if (!allowed.test(item.dataUrl) || item.dataUrl.length > (item.mediaType === 'image' ? 5 : MAX_VIDEO_DATA_URL_LENGTH)) throw error('Community media type or size is invalid');
     return { mediaType: item.mediaType, dataUrl: item.dataUrl };
   });
 }

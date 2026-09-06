@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import ErrorBoundary from './components/ErrorBoundary';
 import apiClient from './services/api';
 import DashboardLayout from './components/layout/DashboardLayout';
@@ -251,12 +253,13 @@ function WorkerOnboarding({ token, onNavigate }) {
 }
 
 function Login({ onLogin, onRegister }) {
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
+  const [identifier, setIdentifier] = useState(''); const [password, setPassword] = useState('');
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); try {
-    const result = await apiClient.post('/auth/login', { email, password }); onLogin(result.data);
+    const isPhone = /^[+\d\s()-]+$/.test(identifier.trim()) && /\d/.test(identifier);
+    const result = await apiClient.post('/auth/login', isPhone ? { phone: identifier, password } : { email: identifier, password }); onLogin(result.data);
   } catch (err) { setError(err.message || 'Sign in failed. Check your details.'); } finally { setBusy(false); } };
-  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div><form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot"><button type="button" className="text-button" onClick={() => navigate('/forgot-password')}>Forgot password?</button></p><p className="form-foot">New farm owner? <button type="button" className="text-button" onClick={onRegister}>Create an account</button></p></form></div>;
+  return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div><form className="auth-form" onSubmit={submit}><p className="eyebrow">WELCOME BACK</p><h2>Sign in to FarmWise</h2><p className="muted">Your operations desk is waiting.</p>{error && <div className="notice error">{error}</div>}<label>Email or phone number<input type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)} required autoComplete="username" /></label><label>Password<PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" /></label><button className="primary-button" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'} <span>→</span></button><p className="form-foot"><button type="button" className="text-button" onClick={() => navigate('/forgot-password')}>Forgot password?</button></p><p className="form-foot">New farm owner? <button type="button" className="text-button" onClick={onRegister}>Create an account</button></p></form></div>;
 }
 
 function ForgotPassword({ onNavigate }) {
@@ -285,10 +288,11 @@ function readPendingRegistration() {
 }
 
 function Register({ onNavigate }) {
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '', verificationMethod: 'EMAIL' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '', verificationMethod: 'SMS' });
   const [error, setError] = useState(''); const [success, setSuccess] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { const emailInput = document.querySelector('.register-form input[type="email"]'); emailInput?.removeAttribute('required'); if (emailInput?.parentElement?.firstChild?.nodeType === Node.TEXT_NODE) emailInput.parentElement.firstChild.textContent = 'Email address (optional)'; }, []);
   const update = (field) => (event) => setForm({ ...form, [field]: event.target.value });
-  const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); setSuccess(''); try { const result = await apiClient.post('/auth/register', form); savePendingRegistration({ ...result.data, phone: form.phone }); onNavigate('/verify-otp'); } catch (err) { sessionStorage.removeItem(PENDING_REGISTRATION_KEY); setError(err.message || 'Registration failed. No user account has been created yet.'); } finally { setBusy(false); } };
+    const submit = async (event) => { event.preventDefault(); setBusy(true); setError(''); setSuccess(''); try { const result = await apiClient.post('/auth/register', { ...form, verificationMethod: form.verificationMethod }); savePendingRegistration({ ...result.data, phone: form.phone }); onNavigate('/verify-otp'); } catch (err) { sessionStorage.removeItem(PENDING_REGISTRATION_KEY); const fieldErrors = err.data?.errors ? Object.values(err.data.errors).filter(Boolean).join(' ') : ''; setError(fieldErrors || err.message || 'Registration failed. No user account has been created yet.'); } finally { setBusy(false); } };
   return <div className="auth-shell"><div className="auth-art"><div className="brand"><span className="brand-mark">FW</span><span>FarmWise</span></div><div className="art-copy"><p className="eyebrow">YOUR FARM, IN FOCUS</p><h1>Make every season count.</h1><p>One calm workspace for the decisions that keep your farm moving.</p></div><div className="season-card"><span>SEASON SNAPSHOT</span><strong>Grow with clarity.</strong><small>Track the work. See the signal.</small></div></div><form className="auth-form register-form" onSubmit={submit}><button type="button" className="back-button" onClick={() => { sessionStorage.removeItem(PENDING_REGISTRATION_KEY); onNavigate('/'); }}>← Back to sign in</button><p className="eyebrow">VERIFY BEFORE YOU JOIN</p><h2>Start your registration</h2><p className="muted">We will send a code first. Your account is created only after verification.</p>{error && <div className="notice error">{error}</div>}{success && <div className="notice success">{success}</div>}<div className="form-row"><label>First name<input value={form.firstName} onChange={update('firstName')} required autoComplete="given-name" /></label><label>Last name<input value={form.lastName} onChange={update('lastName')} required autoComplete="family-name" /></label></div><label>Email address<input type="email" value={form.email} onChange={update('email')} required autoComplete="email" /></label><label>Phone number<input type="tel" value={form.phone} onChange={update('phone')} required autoComplete="tel" placeholder="+233..." /></label><div className="form-row"><label>Password<PasswordInput value={form.password} onChange={update('password')} autoComplete="new-password" /></label><label>Confirm password<PasswordInput value={form.confirmPassword} onChange={update('confirmPassword')} autoComplete="new-password" /></label></div><label>Verification method<select value={form.verificationMethod} onChange={update('verificationMethod')}><option value="EMAIL">Email code</option><option value="SMS">SMS code</option></select></label><button className="primary-button" disabled={busy}>{busy ? 'Sending code...' : 'Send verification code'} <span>→</span></button></form></div>;
 }
 
@@ -506,6 +510,61 @@ function FieldManagement({ farms, onBack }) {
   return <section className="record-page"><button className="back-button" type="button" onClick={onBack}>← Back to records</button><div className="section-heading"><div><p className="eyebrow">FIELD RECORDS</p><h2>Fields</h2><p className="muted">Create, update, and remove field records for each farm.</p></div></div>{!farms.length ? <div className="panel empty-wide"><h3>Create a farm first</h3></div> : <><label>Select farm<select value={farmId} onChange={(event) => setFarmId(event.target.value)}>{farms.map((farm) => <option value={farm.id} key={farm.id}>{farm.name}</option>)}</select></label>{error && <div className="notice error">{error}</div>}<form className="create-form" onSubmit={save}><label>Field name<input value={form.name} onChange={update('name')} required /></label><label>Area<input type="number" min="0.01" step="0.01" value={form.area} onChange={update('area')} required /></label><label>Unit<select value={form.areaUnit} onChange={update('areaUnit')}><option value="HECTARE">Hectare</option><option value="ACRE">Acre</option><option value="SQUARE_METER">Square meter</option></select></label><button className="primary-button" disabled={busy}>{busy ? 'Saving...' : editing ? 'Update field' : 'Add field'}</button>{editing && <button className="text-button" type="button" onClick={() => { setEditing(null); setForm({ name: '', area: '', areaUnit: 'HECTARE' }); }}>Cancel</button>}</form>{loading ? <div className="loading-line" aria-label="Loading fields" /> : <div className="farm-grid">{fields.map((field) => <article className="farm-card" key={field.id}><div className="farm-card-top"><span className="farm-avatar large">{(field.name || 'F')[0]}</span><span className="live-badge">{field.status}</span></div><h3>{field.name}</h3><p>{field.area} {field.areaUnit}</p><div className="farm-card-foot"><button className="text-button" type="button" onClick={() => { setEditing(field); setForm({ name: field.name, area: field.area, areaUnit: field.areaUnit }); }}>Edit</button><button className="text-button" type="button" onClick={() => remove(field)} disabled={busy}>Delete</button></div></article>)}{!fields.length && <div className="panel empty-wide"><h3>No fields yet</h3><p className="muted">Add a field record to start organizing this farm.</p></div>}</div>}</>}</section>;
 }
 
+function getVideoDuration(url) {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.onloadedmetadata = () => resolve(video.duration);
+    video.onerror = () => reject(new Error('Video preview failed'));
+    video.src = url;
+  });
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+const videoTranscoder = new FFmpeg();
+let videoTranscoderReady;
+
+async function loadVideoTranscoder() {
+  if (!videoTranscoderReady) {
+    videoTranscoderReady = (async () => {
+      const baseUrl = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+      await videoTranscoder.load({
+        coreURL: await toBlobURL(`${baseUrl}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseUrl}/ffmpeg-core.wasm`, 'application/wasm'),
+        workerURL: await toBlobURL(`${baseUrl}/ffmpeg-core.worker.js`, 'text/javascript'),
+      });
+    })();
+  }
+  return videoTranscoderReady;
+}
+
+async function trimVideoToDataUrl(file, start, end) {
+  await loadVideoTranscoder();
+  const inputName = `input-${Date.now()}.mp4`;
+  const outputName = `output-${Date.now()}.webm`;
+  await videoTranscoder.writeFile(inputName, await fetchFile(file));
+  await videoTranscoder.exec(['-ss', String(Math.max(0, Number(start) || 0)), '-to', String(Math.max(Number(start) + 0.1, Number(end))), '-i', inputName, '-c:v', 'libvpx-vp9', '-b:v', '650k', '-c:a', 'libopus', '-b:a', '96k', outputName]);
+  const output = await videoTranscoder.readFile(outputName);
+  await videoTranscoder.deleteFile(inputName);
+  await videoTranscoder.deleteFile(outputName);
+  return blobToDataUrl(new Blob([output], { type: 'video/webm' }));
+}
+
+function VideoWithVolume({ src, className = '' }) {
+  const videoRef = useRef(null);
+  const [volume, setVolume] = useState(1);
+  useEffect(() => { if (videoRef.current) videoRef.current.volume = volume; }, [volume]);
+  return <div className="video-volume-control"><video ref={videoRef} className={className} controls preload="metadata" src={src} /><label>Volume<input aria-label="Video volume" type="range" min="0" max="1" step="0.05" value={volume} onChange={(event) => setVolume(Number(event.target.value))} /></label></div>;
+}
+
 function CommunityFeed({ user }) {
   const [posts, setPosts] = useState([]);
   const [body, setBody] = useState('');
@@ -518,6 +577,8 @@ function CommunityFeed({ user }) {
   const [editingPostId, setEditingPostId] = useState(null);
   const [editingBody, setEditingBody] = useState('');
   const [editingCategory, setEditingCategory] = useState('General Agriculture');
+
+  const maxVideoSize = 3 * 1024 * 1024;
 
   const load = async (nextCursor) => {
     try {
@@ -539,7 +600,13 @@ function CommunityFeed({ user }) {
     setBusy(true);
     setError('');
     try {
-      const result = await apiClient.post('/community/posts', { body, category, media });
+      const publishMedia = await Promise.all(media.map(async (item) => {
+        if (item.mediaType !== 'video') return { mediaType: item.mediaType, dataUrl: item.dataUrl };
+        const dataUrl = await trimVideoToDataUrl(item.file, item.start, item.end);
+        if (dataUrl.length > maxVideoSize * 1.5) throw new Error('Choose a shorter video segment. The finished video must be 3 MB or smaller.');
+        return { mediaType: 'video', dataUrl };
+      }));
+      const result = await apiClient.post('/community/posts', { body, category, media: publishMedia });
       setPosts([result.data, ...posts]);
       setBody('');
       setMedia([]);
@@ -552,11 +619,25 @@ function CommunityFeed({ user }) {
 
   const chooseMedia = (event) => {
     const files = Array.from(event.target.files || []).slice(0, 4);
-    Promise.all(files.map((file) => new Promise((resolve) => {
+    const maxImageSize = 4 * 1024 * 1024;
+    const supportedTypes = ['image/png', 'image/jpeg', 'image/webp', 'video/mp4', 'video/webm'];
+    const invalidFile = files.find((file) => !supportedTypes.includes(file.type));
+    const oversizedFile = files.find((file) => !file.type.startsWith('video/') && file.size > maxImageSize);
+    if (invalidFile) { setError('Use PNG, JPG, WEBP, MP4, or WEBM files.'); event.target.value = ''; return; }
+    if (oversizedFile) { setError('Images must be 4 MB or smaller.'); event.target.value = ''; return; }
+    setError('');
+    Promise.all(files.map(async (file) => {
+      if (file.type.startsWith('video/')) {
+        const previewUrl = URL.createObjectURL(file);
+        const duration = await getVideoDuration(previewUrl);
+        return { mediaType: 'video', file, previewUrl, duration, start: 0, end: duration, fileSize: file.size };
+      }
+      return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve({ mediaType: file.type.startsWith('video/') ? 'video' : 'image', dataUrl: reader.result });
       reader.readAsDataURL(file);
-    }))).then(setMedia);
+      });
+    })).then(setMedia).catch(() => setError('Unable to preview that video. Please choose another file.'));
   };
 
   const react = async (post, liked) => {
@@ -633,7 +714,7 @@ function CommunityFeed({ user }) {
           </select>
           <button className="primary-button" disabled={busy}>{busy ? 'Publishing...' : 'Publish post'} <span>→</span></button>
         </div>
-        {media.length > 0 && <small className="muted">{media.length} media item{media.length === 1 ? '' : 's'} ready to publish</small>}
+        {media.length > 0 && <div className="community-media-draft">{media.map((item, index) => item.mediaType === 'video' ? <div className="community-draft-item" key={`${item.previewUrl}-${index}`}><VideoWithVolume src={item.previewUrl} /><label>Start (seconds)<input type="number" min="0" max={item.duration} step="0.1" value={item.start} onChange={(event) => setMedia(media.map((entry, entryIndex) => entryIndex === index ? { ...entry, start: Math.min(Number(event.target.value), entry.end - 0.1) } : entry))} /></label><label>End (seconds)<input type="number" min={item.start + 0.1} max={item.duration} step="0.1" value={item.end} onChange={(event) => setMedia(media.map((entry, entryIndex) => entryIndex === index ? { ...entry, end: Math.max(Number(event.target.value), entry.start + 0.1) } : entry))} /></label><small className="muted">{item.fileSize > maxVideoSize ? 'Trim this video to 3 MB or smaller before publishing.' : 'Choose the part of the video to post.'}</small></div> : <div className="community-draft-item" key={`${item.dataUrl}-${index}`}><img src={item.dataUrl} alt="Selected community media" /><small className="muted">Image ready to publish</small></div>)}</div>}
       </form>
       <div className="community-list">
         {loading && <div className="loading-line" aria-label="Loading community posts" />}
@@ -707,7 +788,7 @@ function CommunityPost({ post, onLike, currentUserId, onEdit, onDelete, onSaveEd
       ) : (
         <>
           {post.body && <p className="community-body">{post.body}</p>}
-          {post.media?.length > 0 && <div className="community-media">{post.media.map((item) => item.mediaType === 'video' ? <video controls preload="metadata" src={item.dataUrl} key={item.id} /> : <img loading="lazy" decoding="async" src={item.dataUrl} alt="Community post" key={item.id} />)}</div>}
+          {post.media?.length > 0 && <div className="community-media">{post.media.map((item, index) => { const extension = item.mediaType === 'video' ? 'mp4' : 'jpg'; const fileName = `farmwise-community-${post.id}-${index + 1}.${extension}`; return <div className="community-media-item" key={item.id || `${post.id}-${index}`}><div className="community-media-preview">{item.mediaType === 'video' ? <VideoWithVolume src={item.dataUrl} /> : <img loading="lazy" decoding="async" src={item.dataUrl} alt="Community post" />}</div><a className="media-download" href={item.dataUrl} download={fileName} title={`Download ${item.mediaType}`} aria-label={`Download ${item.mediaType}`}>Download {item.mediaType}</a></div>; })}</div>}
         </>
       )}
       <div className="community-actions">

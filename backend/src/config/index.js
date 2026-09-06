@@ -146,6 +146,9 @@ export function validateConfig() {
     if (!config.backendUrl.startsWith('https://')) {
       errors.push('BACKEND_URL must use HTTPS in production');
     }
+    if (!config.sms.clientId || !config.sms.apiKey) {
+      errors.push('HUBTEL_SMS_CLIENT_ID and HUBTEL_SMS_CLIENT_SECRET are required in production');
+    }
   }
 
   if (errors.length > 0) {

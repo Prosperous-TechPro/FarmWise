@@ -159,7 +159,7 @@ function AppContent() {
         setFarms(Array.isArray(cached.farms) ? cached.farms : []);
       }
       apiClient.setAuthToken(token);
-      if (view === 'dashboard' || view === 'farms' || view === 'workers') loadWorkspace();
+      if (view === 'dashboard' || view === 'farms') loadWorkspace();
       else { workspaceRequestRef.current += 1; setLoading(false); setNotice(null); }
     }
   }, [token, view]);

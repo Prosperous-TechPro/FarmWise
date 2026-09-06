@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { validateAdminFeedbackPatch, validateFAQInput, validateFeedbackInput } from './supportValidator.js';
+import { validateAdminFeedbackPatch, validateFAQCategoryInput, validateFAQInput, validateFeedbackInput, validateFeedbackMessage } from './supportValidator.js';
 
 test('feedback validation normalizes supported category and priority', () => {
   const result = validateFeedbackInput({ subject: ' Slow page ', description: ' The dashboard takes too long. ', category: 'performance', priority: 'high' });
@@ -28,4 +28,15 @@ test('FAQ validation requires normalized content and category', () => {
 test('admin feedback patch accepts lifecycle fields but rejects invalid values', () => {
   assert.equal(validateAdminFeedbackPatch({ status: 'resolved', priority: 'urgent', assignedToId: 'admin-1' }).isValid, true);
   assert.equal(validateAdminFeedbackPatch({ status: 'deleted' }).isValid, false);
+});
+
+test('feedback messages reject blank and oversized values', () => {
+  assert.equal(validateFeedbackMessage('  ').isValid, false);
+  assert.equal(validateFeedbackMessage(' reply ').normalizedData, 'reply');
+  assert.equal(validateFeedbackMessage('x'.repeat(10001)).isValid, false);
+});
+
+test('FAQ category activation requires a real boolean', () => {
+  assert.equal(validateFAQCategoryInput({ name: 'Security', isActive: false }).isValid, true);
+  assert.equal(validateFAQCategoryInput({ name: 'Security', isActive: 'invalid' }).isValid, false);
 });

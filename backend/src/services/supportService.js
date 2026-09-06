@@ -21,7 +21,7 @@ import {
   updateFeedback,
   upsertFAQFeedback,
 } from '../repositories/supportRepository.js';
-import { validateAdminFeedbackPatch, validateFAQCategoryInput, validateFAQInput, validateFeedbackInput } from '../validators/supportValidator.js';
+import { validateAdminFeedbackPatch, validateFAQCategoryInput, validateFAQInput, validateFeedbackInput, validateFeedbackMessage } from '../validators/supportValidator.js';
 
 function invalid(validation) {
   if (validation.isValid) return;
@@ -138,18 +138,20 @@ export async function patchAdminFeedback(userId, id, input, req) {
 }
 
 export async function respondToFeedback(userId, id, message, req, isInternal = false) {
-  if (typeof message !== 'string' || !message.trim() || message.trim().length > 10000) { const error = new Error('A response message is required'); error.statusCode = 400; throw error; }
+  const validation = validateFeedbackMessage(message);
+  invalid(validation);
   const feedback = await getAdminFeedbackDetail(id);
-  const response = await createFeedbackResponse({ feedbackId: id, authorId: userId, message: message.trim(), isInternal });
+  const response = await createFeedbackResponse({ feedbackId: id, authorId: userId, message: validation.normalizedData, isInternal });
   await audit(isInternal ? 'FEEDBACK_INTERNAL_NOTE_CREATED' : 'FEEDBACK_RESPONSE_CREATED', 'Feedback', id, userId, req);
   if (!isInternal) await createGlobalNotification({ userId: feedback.user.id, type: 'FEEDBACK_RESPONSE', title: 'A response was added to your feedback', message: `${feedback.reference} has a new response.`, relatedEntityType: 'FEEDBACK', relatedEntityId: id });
   return response;
 }
 
 export async function addInternalNote(userId, id, note, req) {
-  if (typeof note !== 'string' || !note.trim() || note.trim().length > 10000) { const error = new Error('An internal note is required'); error.statusCode = 400; throw error; }
+  const validation = validateFeedbackMessage(note, 'note');
+  invalid(validation);
   await getAdminFeedbackDetail(id);
-  const result = await createFeedbackNote({ feedbackId: id, authorId: userId, note: note.trim() });
+  const result = await createFeedbackNote({ feedbackId: id, authorId: userId, note: validation.normalizedData });
   await audit('FEEDBACK_INTERNAL_NOTE_CREATED', 'Feedback', id, userId, req);
   return result;
 }

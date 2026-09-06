@@ -38,15 +38,24 @@ export function validateFAQInput(input = {}) {
 
 export function validateFAQCategoryInput(input = {}) {
   const errors = {};
-  const isActive = input.isActive === undefined ? true : input.isActive === true || input.isActive === 'true';
+  const isActive = input.isActive === undefined ? true : input.isActive;
   const normalizedData = {
     name: text(input.name, 'name', errors, 120),
     description: input.description ? text(input.description, 'description', errors, 2000) : null,
     displayOrder: input.displayOrder === undefined ? 0 : Number(input.displayOrder),
-    isActive,
+    isActive: isActive === 'true' ? true : isActive === 'false' ? false : isActive,
   };
   if (!Number.isInteger(normalizedData.displayOrder) || normalizedData.displayOrder < 0) errors.displayOrder = 'displayOrder must be a non-negative integer';
+  if (typeof normalizedData.isActive !== 'boolean') errors.isActive = 'isActive must be a boolean';
   return { isValid: Object.keys(errors).length === 0, errors, normalizedData };
+}
+
+export function validateFeedbackMessage(value, field = 'message') {
+  const message = typeof value === 'string' ? value.trim() : '';
+  const errors = {};
+  if (!message) errors[field] = `${field} is required`;
+  else if (message.length > 10000) errors[field] = `${field} must be at most 10000 characters`;
+  return { isValid: Object.keys(errors).length === 0, errors, normalizedData: message };
 }
 
 export function validateAdminFeedbackPatch(input = {}) {

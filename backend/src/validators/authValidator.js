@@ -6,6 +6,33 @@
 import { normalizePhoneNumber } from '../utils/phone.js';
 import { validatePasswordStrength } from '../utils/crypto.js';
 
+const NAME_PATTERN = /^[A-Za-zÀ-ÖØ-öø-ÿ]+(?:[ .'-][A-Za-zÀ-ÖØ-öø-ÿ]+)*\.?$/u;
+
+function normalizeNameValue(value) {
+  return typeof value === 'string' ? value.trim().replace(/\s+/g, ' ') : '';
+}
+
+function validateNameField(value, fieldName) {
+  const name = normalizeNameValue(value);
+
+  if (!name) {
+    return { isValid: false, error: `${fieldName} is required` };
+  }
+
+  if (name.length < 2 || name.length > 50) {
+    return { isValid: false, error: `${fieldName} must be between 2 and 50 characters` };
+  }
+
+  if (!NAME_PATTERN.test(name)) {
+    return {
+      isValid: false,
+      error: `${fieldName} can contain letters, spaces, apostrophes, hyphens, and a trailing period for initials`,
+    };
+  }
+
+  return { isValid: true, normalized: name };
+}
+
 /**
  * Validate registration request
  * @param {Object} data - Request data
@@ -31,22 +58,14 @@ export function validateRegistration(data) {
     }
   }
 
-  // Validate first name
-  if (!data.firstName || typeof data.firstName !== 'string') {
-    errors.firstName = 'First name is required';
-  } else if (data.firstName.trim().length < 2) {
-    errors.firstName = 'First name must be at least 2 characters';
-  } else if (data.firstName.trim().length > 50) {
-    errors.firstName = 'First name must not exceed 50 characters';
+  const firstNameValidation = validateNameField(data.firstName, 'First name');
+  if (!firstNameValidation.isValid) {
+    errors.firstName = firstNameValidation.error;
   }
 
-  // Validate last name
-  if (!data.lastName || typeof data.lastName !== 'string') {
-    errors.lastName = 'Last name is required';
-  } else if (data.lastName.trim().length < 2) {
-    errors.lastName = 'Last name must be at least 2 characters';
-  } else if (data.lastName.trim().length > 50) {
-    errors.lastName = 'Last name must not exceed 50 characters';
+  const lastNameValidation = validateNameField(data.lastName, 'Last name');
+  if (!lastNameValidation.isValid) {
+    errors.lastName = lastNameValidation.error;
   }
 
   // Validate password
@@ -79,8 +98,8 @@ export function validateRegistration(data) {
     normalizedData = {
       email: data.email.toLowerCase().trim(),
       phone: phoneResult.normalizedNumber,
-      firstName: data.firstName.trim(),
-      lastName: data.lastName.trim(),
+      firstName: firstNameValidation.normalized,
+      lastName: lastNameValidation.normalized,
       password: data.password, // Don't modify password
       verificationMethod: data.verificationMethod,
     };
@@ -151,15 +170,21 @@ export function validateProfileUpdate(data = {}) {
   const normalizedData = {};
 
   if (data.firstName !== undefined) {
-    if (typeof data.firstName !== 'string' || data.firstName.trim().length < 2 || data.firstName.trim().length > 50) {
-      errors.firstName = 'First name must be between 2 and 50 characters';
-    } else normalizedData.firstName = data.firstName.trim();
+    const firstNameValidation = validateNameField(data.firstName, 'First name');
+    if (!firstNameValidation.isValid) {
+      errors.firstName = firstNameValidation.error;
+    } else {
+      normalizedData.firstName = firstNameValidation.normalized;
+    }
   }
 
   if (data.lastName !== undefined) {
-    if (typeof data.lastName !== 'string' || data.lastName.trim().length < 2 || data.lastName.trim().length > 50) {
-      errors.lastName = 'Last name must be between 2 and 50 characters';
-    } else normalizedData.lastName = data.lastName.trim();
+    const lastNameValidation = validateNameField(data.lastName, 'Last name');
+    if (!lastNameValidation.isValid) {
+      errors.lastName = lastNameValidation.error;
+    } else {
+      normalizedData.lastName = lastNameValidation.normalized;
+    }
   }
 
   if (data.phone !== undefined) {

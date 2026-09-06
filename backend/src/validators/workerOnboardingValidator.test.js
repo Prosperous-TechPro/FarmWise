@@ -18,6 +18,21 @@ test('worker registration accepts initials and periods in names', () => {
   assert.equal(result.normalizedData.lastName, 'B.');
 });
 
+test('owner registration accepts initials and trailing periods in surnames', async () => {
+  const { validateRegistration } = await import('./authValidator.js');
+  const result = validateRegistration({
+    firstName: 'Joe',
+    lastName: 'B.',
+    email: 'joe@example.com',
+    phone: '0592673941',
+    password: 'Test@1234',
+    confirmPassword: 'Test@1234',
+    verificationMethod: 'SMS',
+  });
+  assert.equal(result.isValid, true);
+  assert.equal(result.normalizedData.lastName, 'B.');
+});
+
 test('worker registration rejects invalid identity data', () => {
   assert.equal(validateWorkerRegistration({ fullName: 'A', phone: 'bad', email: 'bad' }).isValid, false);
 });

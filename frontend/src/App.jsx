@@ -207,7 +207,7 @@ function AppContent() {
         {view === 'about' && <AboutFarmWise />}
         {view === 'users' && <UserManagement isSuperAdmin={isSuperAdmin} />}
         {view === 'admin-farms' && <AdminFarmManagement />}
-        {pathname.startsWith('/feedback/') && <FeedbackDetail feedbackId={pathname.split('/')[2]} onNavigate={navigate} />}
+        {view === 'feedback' && pathname.startsWith('/feedback/') && <FeedbackDetail feedbackId={pathname.split('/')[2]} onNavigate={navigate} />}
         {view === 'feedback' && !pathname.startsWith('/feedback/') && <AdminSupport onNavigate={navigate} />}
         {view === 'workers' && <WorkerManagement farms={farms} />}
         {view === 'analytics' && <Analytics overview={overview} />}

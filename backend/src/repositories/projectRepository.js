@@ -3,19 +3,15 @@ import prisma from '../lib/prisma.js';
 const projectInclude = {
   creator: { select: { id: true, firstName: true, lastName: true, email: true } },
   budgetLines: { orderBy: { createdAt: 'asc' } },
-  expenses: { select: { amount: true, status: true, currency: true } },
 };
 
 function withMetrics(project) {
   const plannedBudget = project.budgetLines.reduce((sum, line) => sum + Number(line.plannedAmount), 0);
-  const actualExpenditure = project.expenses
-    .filter((expense) => !['DRAFT', 'CANCELLED', 'VOIDED'].includes(expense.status))
-    .reduce((sum, expense) => sum + Number(expense.amount), 0);
+  const actualExpenditure = 0;
   const remainingBudget = plannedBudget - actualExpenditure;
   return {
     ...project,
     budgetLines: project.budgetLines.map((line) => ({ ...line, plannedAmount: Number(line.plannedAmount) })),
-    expenses: undefined,
     plannedBudget,
     actualExpenditure,
     remainingBudget,

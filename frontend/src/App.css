@@ -66,9 +66,10 @@
 .about-grid .panel { padding:28px; }
 .about-grid h3 { margin:0 0 12px; font-size:22px; }
 .about-grid p:last-child { max-width:560px; margin:0; color:var(--muted); line-height:1.7; }
-.about-aim { color:#e9f2df; background:#287452; border-color:#287452; }
-.about-aim .eyebrow { color:var(--lime); }
-.about-aim p:last-child { color:#d3e5d3; }
+.about-aim { color:var(--ink); background:var(--white); border-color:var(--green); border-top:5px solid var(--green); }
+.about-aim .eyebrow { color:var(--green); }
+.about-aim h3 { color:var(--green); }
+.about-aim p:last-child { color:var(--ink); font-size:16px; font-weight:500; line-height:1.75; }
 .about-objectives { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px 24px; padding:0; margin:20px 0 0; list-style:none; }
 .about-objectives li { position:relative; padding-left:18px; color:var(--muted); }
 .about-objectives li::before { content:'•'; position:absolute; left:0; color:var(--green); font-weight:700; }

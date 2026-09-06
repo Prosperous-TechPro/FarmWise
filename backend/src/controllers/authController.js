@@ -112,11 +112,19 @@ export async function register(req, res) {
     });
 
     // Handle specific error messages
-    if (error.message.includes('already registered')) {
+    if (error.message.includes('Email address is already registered')) {
       return res.status(409).json({
         success: false,
         message: 'User already exists',
         errors: { email: 'This email address is already registered' },
+      });
+    }
+
+    if (error.message.includes('Phone number is already registered')) {
+      return res.status(409).json({
+        success: false,
+        message: 'User already exists',
+        errors: { phone: 'This phone number is already registered' },
       });
     }
 

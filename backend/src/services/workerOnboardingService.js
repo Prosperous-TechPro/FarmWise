@@ -9,6 +9,12 @@ import { updatePasswordHash, updateUser } from '../repositories/userRepository.j
 
 function invalid(validation) { if (validation.isValid) return; const error = new Error('Validation failed'); error.statusCode = 400; error.details = validation.errors; throw error; }
 
+export function buildWorkerOnboardingSmsMessage({ firstName, lastName, temporaryPassword, onboardingUrl }) {
+  const workerName = [firstName, lastName].filter(Boolean).join(' ').trim() || 'Worker';
+  const content = `Hi ${workerName}, set up your FarmWise account: ${onboardingUrl}. Use temp password ${temporaryPassword}.`;
+  return content.length <= 160 ? content : `${content.slice(0, 157)}...`;
+}
+
 export async function registerWorker(farmerId, farmId, input, req) {
   const farm = await getFarmById(farmId);
   if (!farm || farm.ownerId !== farmerId) { const error = new Error('You are not authorized to register workers for this farm'); error.statusCode = 403; throw error; }
@@ -19,10 +25,23 @@ export async function registerWorker(farmerId, farmId, input, req) {
   const temporaryPassword = generateToken(12);
   const syntheticEmail = email || `${phone.replace(/\D/g, '')}@worker.farmwise.local`;
   const token = generateToken(32);
+  const onboardingUrl = `${req.app.get('config')?.frontendUrl || 'https://frontend-eight-rho-92.vercel.app'}/worker-onboarding/${token}`;
   const result = await createWorkerAccount({ user: { email: syntheticEmail, phone, firstName, lastName, passwordHash: await hashPassword(temporaryPassword), status: 'ACTIVE', emailVerified: Boolean(email), phoneVerified: false }, farmId, createdById: farmerId, tokenHash: hashValue(token) });
-  await createAuditLog({ farmId, userId: farmerId, action: 'WORKER_REGISTERED_BY_FARMER', entityType: 'User', entityId: result.user.id, req, newValues: { workerId: result.user.id, farmId, phone } });
+  const smsMessage = buildWorkerOnboardingSmsMessage({ firstName, lastName, temporaryPassword, onboardingUrl });
+  const smsProvider = req.app.get('smsProvider');
+  if (smsProvider) {
+    try {
+      await smsProvider.send(phone, smsMessage);
+    } catch (error) {
+      const deliveryError = new Error('Worker account was created but SMS delivery failed.');
+      deliveryError.statusCode = 502;
+      deliveryError.details = { smsError: error.message, onboardingUrl, temporaryPassword };
+      throw deliveryError;
+    }
+  }
+  await createAuditLog({ farmId, userId: farmerId, action: 'WORKER_REGISTERED_BY_FARMER', entityType: 'User', entityId: result.user.id, req, newValues: { workerId: result.user.id, farmId, phone, onboardingUrl } });
   await createGlobalNotification({ userId: farmerId, type: 'WORKER_REGISTERED', title: 'Worker registered successfully', message: `${firstName} ${lastName} was added to ${farm.name}.`, relatedEntityType: 'USER', relatedEntityId: result.user.id });
-  return { worker: { id: result.user.id, firstName, lastName, phone, email: email || null, farm: farm.name, status: 'ACTIVE', onboardingStatus: 'PHONE_VERIFICATION_REQUIRED' }, temporaryPassword, onboardingToken: token };
+  return { worker: { id: result.user.id, firstName, lastName, phone, email: email || null, farm: farm.name, status: 'ACTIVE', onboardingStatus: 'PHONE_VERIFICATION_REQUIRED' }, temporaryPassword, onboardingToken: token, onboardingUrl, smsSent: true };
 }
 
 export async function getOnboarding(token) {

@@ -11,6 +11,13 @@ test('worker registration normalizes valid Ghana phone and optional email', () =
   assert.match(result.normalizedData.phone, /^233/);
 });
 
+test('worker registration accepts initials and periods in names', () => {
+  const result = validateWorkerRegistration({ fullName: 'Joe B.', phone: '0592673941', email: '' });
+  assert.equal(result.isValid, true);
+  assert.equal(result.normalizedData.firstName, 'Joe');
+  assert.equal(result.normalizedData.lastName, 'B.');
+});
+
 test('worker registration rejects invalid identity data', () => {
   assert.equal(validateWorkerRegistration({ fullName: 'A', phone: 'bad', email: 'bad' }).isValid, false);
 });

@@ -6,7 +6,7 @@ export function validateWorkerRegistration(input = {}) {
   const email = input.email === undefined || input.email === '' ? null : String(input.email).trim().toLowerCase();
   const phone = typeof input.phone === 'string' ? normalizePhoneNumber(input.phone) : { isValid: false, error: 'Phone number is required' };
 
-  if (fullName.length < 3 || fullName.length > 100 || !/^[\p{L}][\p{L}\s'-]+$/u.test(fullName)) errors.fullName = 'Enter the worker full name using letters only';
+  if (fullName.length < 3 || fullName.length > 100 || !/^[\p{L}][\p{L}\s'.-]+$/u.test(fullName)) errors.fullName = 'Enter the worker full name using letters only';
   if (!phone.isValid) errors.phone = phone.error || 'Invalid phone number';
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Invalid email address';
 

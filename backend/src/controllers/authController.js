@@ -244,7 +244,10 @@ export async function forgotPasswordEndpoint(req, res) {
     return res.status(200).json({ success: true, message: 'If an account exists for that email, a password reset code has been sent.' });
   } catch (error) {
     logger.error('Forgot password error', { error: error.message });
-    return res.status(200).json({ success: true, message: 'If an account exists for that email, a password reset code has been sent.' });
+    return res.status(503).json({
+      success: false,
+      message: 'Password reset email delivery is temporarily unavailable. Please try again later.',
+    });
   }
 }
 

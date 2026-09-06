@@ -128,7 +128,9 @@ export async function patchAdminFeedback(userId, id, input, req) {
   }
   const data = { ...validation.normalizedData };
   if (data.status === 'RESOLVED') data.resolvedAt = new Date();
+  else if (data.status !== undefined) data.resolvedAt = null;
   if (data.status === 'CLOSED') data.closedAt = new Date();
+  else if (data.status !== undefined) data.closedAt = null;
   const feedback = await updateFeedback(id, data);
   await audit('FEEDBACK_UPDATED', 'Feedback', id, userId, req, { status: before.status, priority: before.priority, assignedToId: before.assignedToId }, data);
   if (before.user?.id && before.status !== feedback.status) await createGlobalNotification({ userId: before.user.id, type: 'FEEDBACK_STATUS_CHANGED', title: 'Feedback status updated', message: `${feedback.reference} is now ${feedback.status.replaceAll('_', ' ').toLowerCase()}.`, relatedEntityType: 'FEEDBACK', relatedEntityId: id });

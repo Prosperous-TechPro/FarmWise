@@ -38,10 +38,12 @@ export function validateFAQInput(input = {}) {
 
 export function validateFAQCategoryInput(input = {}) {
   const errors = {};
+  const isActive = input.isActive === undefined ? true : input.isActive === true || input.isActive === 'true';
   const normalizedData = {
     name: text(input.name, 'name', errors, 120),
     description: input.description ? text(input.description, 'description', errors, 2000) : null,
     displayOrder: input.displayOrder === undefined ? 0 : Number(input.displayOrder),
+    isActive,
   };
   if (!Number.isInteger(normalizedData.displayOrder) || normalizedData.displayOrder < 0) errors.displayOrder = 'displayOrder must be a non-negative integer';
   return { isValid: Object.keys(errors).length === 0, errors, normalizedData };

@@ -204,6 +204,7 @@ function AppContent() {
         {view === 'community' && <CommunityFeed user={user} />}
         {view === 'notifications' && <Notifications />}
         {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice('Profile updated successfully.'); }} />}
+        {view === 'about' && <AboutFarmWise />}
         {view === 'users' && <UserManagement isSuperAdmin={isSuperAdmin} />}
         {view === 'admin-farms' && <AdminFarmManagement />}
         {pathname.startsWith('/feedback/') && <FeedbackDetail feedbackId={pathname.split('/')[2]} onNavigate={navigate} />}
@@ -226,6 +227,16 @@ function WorkerDashboard({ dashboard, user, loading }) {
       <div className="panel"><div className="panel-heading"><div><p className="eyebrow">RECENT ACTIVITY</p><h3>Your recorded work</h3></div></div>{activities.length ? activities.slice(0, 6).map((activity) => <div className="list-row" key={activity.id}><strong>{activity.title}</strong><span className="muted">{activity.status}</span></div>) : <p className="muted">No recent activity yet.</p>}</div>
     </>}
   </section>;
+}
+
+function AboutFarmWise() {
+  const objectives = [
+    'Manage crops and farm activities.', 'Manage livestock and their records.', 'Manage farm workers and assign tasks.',
+    'Track farm supplies and inventory.', 'Record expenses and sales.', 'Monitor farm performance and profitability.',
+    'Generate useful farm reports.', 'Receive important notifications and alerts.', 'Communicate and share ideas with other users.',
+    'Get answers through the FAQ and help system.', 'Provide feedback to help improve FarmWise.',
+  ];
+  return <section className="about-page"><div className="section-heading"><div><p className="eyebrow">ABOUT FARMWISE</p><h2>Make every season count.</h2><p className="muted">A simple workspace for the decisions that keep your farm moving.</p></div></div><div className="about-grid"><article className="panel about-aim"><p className="eyebrow">OUR AIM</p><h3>Farm management, made easier.</h3><p>FarmWise aims to make farm management easier by helping farmers organize their farm activities, records, resources, and finances in one simple system.</p></article><article className="panel"><p className="eyebrow">OUR OBJECTIVES</p><h3>What FarmWise helps you do</h3><ul className="about-objectives">{objectives.map((objective) => <li key={objective}>{objective}</li>)}</ul></article></div></section>;
 }
 
 function Login({ onLogin, onRegister }) {

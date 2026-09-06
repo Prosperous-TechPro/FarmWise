@@ -1,7 +1,7 @@
 import React from 'react';
 
-const items = [['dashboard', 'Overview'], ['farms', 'My farms'], ['workers', 'Workers'], ['records', 'Records'], ['projects', 'Projects'], ['community', 'Community'], ['notifications', 'Notifications'], ['account', 'Account']];
-const workerItems = [['dashboard', 'Dashboard'], ['farms', 'My farms'], ['records', 'My work'], ['community', 'Community'], ['notifications', 'Notifications'], ['account', 'Profile']];
+const items = [['dashboard', 'Overview'], ['farms', 'My farms'], ['workers', 'Workers'], ['records', 'Records'], ['projects', 'Projects'], ['community', 'Community'], ['notifications', 'Notifications'], ['account', 'Account'], ['about', 'About FarmWise']];
+const workerItems = [['dashboard', 'Dashboard'], ['farms', 'My farms'], ['records', 'My work'], ['community', 'Community'], ['notifications', 'Notifications'], ['account', 'Profile'], ['about', 'About FarmWise']];
 const adminItems = [['users', 'Users'], ['admin-farms', 'All farms'], ['feedback', 'Feedback']];
 
 export default function Sidebar({ activeView, isOpen, isSystemAdmin, isWorker, onViewChange, onClose }) {

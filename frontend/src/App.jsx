@@ -6,7 +6,7 @@ import ActivityRecords from './components/ActivityRecords';
 import LivestockRecords from './components/LivestockRecords';
 import FinanceRecords from './components/FinanceRecords';
 import InventoryRecords from './components/InventoryRecords';
-import AdminSupport from './components/support/AdminSupport';
+import AdminSupport, { FeedbackDetail } from './components/support/AdminSupport';
 import './App.css';
 
 const TOKEN_KEY = 'farmwise.accessToken';
@@ -206,7 +206,8 @@ function AppContent() {
         {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice('Profile updated successfully.'); }} />}
         {view === 'users' && <UserManagement isSuperAdmin={isSuperAdmin} />}
         {view === 'admin-farms' && <AdminFarmManagement />}
-        {view === 'feedback' && <AdminSupport />}
+        {pathname.startsWith('/feedback/') && <FeedbackDetail feedbackId={pathname.split('/')[2]} onNavigate={navigate} />}
+        {view === 'feedback' && !pathname.startsWith('/feedback/') && <AdminSupport onNavigate={navigate} />}
         {view === 'workers' && <WorkerManagement farms={farms} />}
         {view === 'analytics' && <Analytics overview={overview} />}
     </DashboardLayout>

@@ -22,7 +22,8 @@ import {
 } from '../validators/farmValidator.js';
 
 export async function createFarmService(input) {
-  const validation = validateCreateFarm(input);
+  const { ownerId, ...farmInput } = input;
+  const validation = validateCreateFarm(farmInput);
   if (!validation.isValid) {
     const error = new Error('Validation failed');
     error.statusCode = 400;
@@ -32,7 +33,7 @@ export async function createFarmService(input) {
 
   return createFarm({
     ...validation.normalizedData,
-    ownerId: input.ownerId,
+    ownerId,
   });
 }
 

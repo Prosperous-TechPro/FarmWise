@@ -212,7 +212,7 @@ function AppContent() {
         {view === 'admin-farms' && <AdminFarmManagement />}
         {view === 'feedback' && pathname.startsWith('/feedback/') && <FeedbackDetail feedbackId={pathname.split('/')[2]} onNavigate={navigate} />}
         {view === 'feedback' && !pathname.startsWith('/feedback/') && <AdminSupport onNavigate={navigate} />}
-        {view === 'workers' && <><WorkerRegistration farms={farms} /><WorkerManagement farms={farms} /></>}
+        {view === 'workers' && <>{!isWorker && !isSystemAdmin && <WorkerRegistration farms={farms} />}<WorkerManagement farms={farms} /></>}
         {view === 'analytics' && <Analytics overview={overview} />}
     </DashboardLayout>
   );

@@ -26,6 +26,8 @@ export const ENVIRONMENTS = {
   TEST: 'test',
 };
 
+export { FAQ_CATEGORY_TITLES, FAQ_CATEGORY_OPTIONS } from './faqCategories.js';
+
 // HTTP status messages
 export const HTTP_STATUS = {
   OK: 'OK',

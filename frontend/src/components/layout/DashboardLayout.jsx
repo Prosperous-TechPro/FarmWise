@@ -17,7 +17,7 @@ export default function DashboardLayout({ children, view, onViewChange, user, is
       <div className="dashboard-main">
         <Topbar user={user} onSignOut={onSignOut} onNotifications={onNotifications} onMenu={() => setSidebarOpen(true)} darkMode={darkMode} onToggleTheme={onToggleTheme} />
         <main className="main-content">
-          {notice && <div className="notice error" role="alert">{notice}<button type="button" onClick={onDismissNotice} aria-label="Dismiss notification">×</button></div>}
+          {notice && <div className={`notice ${notice.type || 'error'}`} role="alert">{notice.message || notice}<button type="button" onClick={onDismissNotice} aria-label="Dismiss notification">×</button></div>}
           {loading && <div className="loading-line" aria-label="Loading" />}
           {children}
         </main>

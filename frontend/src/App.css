@@ -158,6 +158,11 @@ button:focus-visible { outline:3px solid var(--lime); outline-offset:3px; }
 .support-empty { display:grid; place-items:center; min-height:240px; }
 .support-tabs { justify-content:flex-start; margin-bottom:18px; }
 .support-tabs button.active { color:#fff; background:var(--green); }
+.livestock-history { margin-top:18px; }
+.livestock-history-tabs { flex-wrap:wrap; }
+.livestock-history .create-form { flex-wrap:wrap; margin-bottom:18px; }
+.livestock-history .create-form label { min-width:140px; }
+.list-stack { display:grid; gap:0; }
 @media (max-width:700px) { .faq-float-button { right:14px; bottom:14px; } .support-backdrop { padding:0; place-items:stretch; } .support-dialog { width:100%; max-height:100vh; border:0; border-radius:0; } .support-admin-grid { grid-template-columns:1fr; } }
 .record-content-panel h3 { margin:0 0 8px; font-size:21px; }
 .record-content-panel .muted { margin:0; }

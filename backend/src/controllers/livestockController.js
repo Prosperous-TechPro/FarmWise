@@ -4,6 +4,18 @@
 
 import {
   createLivestockBreedingService,
+  createLivestockEventService,
+  listLivestockEventService,
+  createLivestockWeightService,
+  listLivestockWeightService,
+  createLivestockHealthService,
+  listLivestockHealthService,
+  createLivestockTreatmentService,
+  listLivestockTreatmentService,
+  createLivestockVaccinationService,
+  listLivestockVaccinationService,
+  createLivestockFeedingService,
+  listLivestockFeedingService,
   createLivestockService,
   deleteLivestockService,
   getLivestockDetailService,
@@ -101,6 +113,33 @@ export async function listBreedingRecords(req, res) {
   });
 }
 
+function historyHandlers(service, label) {
+  return {
+    create: async (req, res) => res.status(201).json({ success: true, data: await service.create(req.params.farmId, req.params.livestockId, req.body), message: `${label} created successfully` }),
+    list: async (req, res) => res.status(200).json({ success: true, data: await service.list(req.params.farmId, req.params.livestockId), message: `${label} fetched successfully` }),
+  };
+}
+
+const eventHandlers = historyHandlers({ create: createLivestockEventService, list: listLivestockEventService }, 'Livestock event');
+const weightHandlers = historyHandlers({ create: createLivestockWeightService, list: listLivestockWeightService }, 'Weight record');
+const healthHandlers = historyHandlers({ create: createLivestockHealthService, list: listLivestockHealthService }, 'Health record');
+const treatmentHandlers = historyHandlers({ create: createLivestockTreatmentService, list: listLivestockTreatmentService }, 'Treatment record');
+const vaccinationHandlers = historyHandlers({ create: createLivestockVaccinationService, list: listLivestockVaccinationService }, 'Vaccination record');
+const feedingHandlers = historyHandlers({ create: createLivestockFeedingService, list: listLivestockFeedingService }, 'Feeding record');
+
+export const listLivestockEvents = eventHandlers.list;
+export const createLivestockEvent = eventHandlers.create;
+export const listLivestockWeights = weightHandlers.list;
+export const createLivestockWeight = weightHandlers.create;
+export const listLivestockHealth = healthHandlers.list;
+export const createLivestockHealth = healthHandlers.create;
+export const listLivestockTreatments = treatmentHandlers.list;
+export const createLivestockTreatment = treatmentHandlers.create;
+export const listLivestockVaccinations = vaccinationHandlers.list;
+export const createLivestockVaccination = vaccinationHandlers.create;
+export const listLivestockFeeding = feedingHandlers.list;
+export const createLivestockFeeding = feedingHandlers.create;
+
 export default {
   listLivestock,
   createLivestock,
@@ -111,4 +150,16 @@ export default {
   listLivestockBreeds,
   createBreedingRecord,
   listBreedingRecords,
+  listLivestockEvents,
+  createLivestockEvent,
+  listLivestockWeights,
+  createLivestockWeight,
+  listLivestockHealth,
+  createLivestockHealth,
+  listLivestockTreatments,
+  createLivestockTreatment,
+  listLivestockVaccinations,
+  createLivestockVaccination,
+  listLivestockFeeding,
+  createLivestockFeeding,
 };

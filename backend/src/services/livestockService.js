@@ -4,6 +4,18 @@
 
 import {
   createLivestock,
+  createLivestockEvent,
+  listLivestockEventsForAnimal,
+  createWeightRecord,
+  listWeightRecordsForAnimal,
+  createHealthRecord,
+  listHealthRecordsForAnimal,
+  createTreatmentRecord,
+  listTreatmentRecordsForAnimal,
+  createVaccinationRecord,
+  listVaccinationRecordsForAnimal,
+  createFeedingRecord,
+  listFeedingRecordsForAnimal,
   createBreedingRecord,
   deleteLivestock,
   ensureDefaultLivestockSpecies,
@@ -18,7 +30,30 @@ import { getFarmById } from '../repositories/farmRepository.js';
 import {
   validateCreateLivestock,
   validateMatingInput,
+  validateLivestockEvent,
+  validateLivestockWeight,
+  validateLivestockHealth,
+  validateLivestockTreatment,
+  validateLivestockVaccination,
+  validateLivestockFeeding,
 } from '../validators/livestockValidator.js';
+
+function validationError(validation) {
+  const error = new Error('Validation failed');
+  error.statusCode = 400;
+  error.details = validation.errors;
+  return error;
+}
+
+async function getFarmAnimal(farmId, livestockId) {
+  const animal = await getLivestockById(livestockId);
+  if (!animal || animal.farmId !== farmId) {
+    const error = new Error('Livestock not found in this farm');
+    error.statusCode = 404;
+    throw error;
+  }
+  return animal;
+}
 
 export async function listFarmLivestockService(farmId, filters = {}) {
   const farm = await getFarmById(farmId);
@@ -161,20 +196,68 @@ export async function createLivestockBreedingService(farmId, livestockId, input)
 }
 
 export async function listLivestockBreedingService(farmId, livestockId) {
-  const animal = await getLivestockById(livestockId);
-  if (!animal) {
-    const error = new Error('Livestock not found');
-    error.statusCode = 404;
-    throw error;
-  }
-
-  if (animal.farmId !== farmId) {
-    const error = new Error('Livestock not found in this farm');
-    error.statusCode = 404;
-    throw error;
-  }
-
+  await getFarmAnimal(farmId, livestockId);
   return listBreedingRecordsForAnimal(livestockId);
+}
+
+async function createHistoryRecord(farmId, livestockId, input, validator, repositoryCreate) {
+  await getFarmAnimal(farmId, livestockId);
+  const validation = validator(input);
+  if (!validation.isValid) throw validationError(validation);
+  return repositoryCreate({ livestockId, ...validation.normalizedData });
+}
+
+async function listHistoryRecords(farmId, livestockId, repositoryList) {
+  await getFarmAnimal(farmId, livestockId);
+  return repositoryList(livestockId);
+}
+
+export function createLivestockEventService(farmId, livestockId, input) {
+  return createHistoryRecord(farmId, livestockId, input, validateLivestockEvent, createLivestockEvent);
+}
+
+export function listLivestockEventService(farmId, livestockId) {
+  return listHistoryRecords(farmId, livestockId, listLivestockEventsForAnimal);
+}
+
+export function createLivestockWeightService(farmId, livestockId, input) {
+  return createHistoryRecord(farmId, livestockId, input, validateLivestockWeight, createWeightRecord);
+}
+
+export function listLivestockWeightService(farmId, livestockId) {
+  return listHistoryRecords(farmId, livestockId, listWeightRecordsForAnimal);
+}
+
+export function createLivestockHealthService(farmId, livestockId, input) {
+  return createHistoryRecord(farmId, livestockId, input, validateLivestockHealth, createHealthRecord);
+}
+
+export function listLivestockHealthService(farmId, livestockId) {
+  return listHistoryRecords(farmId, livestockId, listHealthRecordsForAnimal);
+}
+
+export function createLivestockTreatmentService(farmId, livestockId, input) {
+  return createHistoryRecord(farmId, livestockId, input, validateLivestockTreatment, createTreatmentRecord);
+}
+
+export function listLivestockTreatmentService(farmId, livestockId) {
+  return listHistoryRecords(farmId, livestockId, listTreatmentRecordsForAnimal);
+}
+
+export function createLivestockVaccinationService(farmId, livestockId, input) {
+  return createHistoryRecord(farmId, livestockId, input, validateLivestockVaccination, createVaccinationRecord);
+}
+
+export function listLivestockVaccinationService(farmId, livestockId) {
+  return listHistoryRecords(farmId, livestockId, listVaccinationRecordsForAnimal);
+}
+
+export function createLivestockFeedingService(farmId, livestockId, input) {
+  return createHistoryRecord(farmId, livestockId, input, validateLivestockFeeding, createFeedingRecord);
+}
+
+export function listLivestockFeedingService(farmId, livestockId) {
+  return listHistoryRecords(farmId, livestockId, listFeedingRecordsForAnimal);
 }
 
 export default {
@@ -187,4 +270,16 @@ export default {
   listLivestockBreedsService,
   createLivestockBreedingService,
   listLivestockBreedingService,
+  createLivestockEventService,
+  listLivestockEventService,
+  createLivestockWeightService,
+  listLivestockWeightService,
+  createLivestockHealthService,
+  listLivestockHealthService,
+  createLivestockTreatmentService,
+  listLivestockTreatmentService,
+  createLivestockVaccinationService,
+  listLivestockVaccinationService,
+  createLivestockFeedingService,
+  listLivestockFeedingService,
 };

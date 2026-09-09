@@ -130,6 +130,13 @@ export async function createLivestockEvent(data) {
   });
 }
 
+export async function listLivestockEventsForAnimal(animalId) {
+  return prisma.livestockEvent.findMany({
+    where: { livestockId: animalId },
+    orderBy: { eventDate: 'desc' },
+  });
+}
+
 export async function createWeightRecord(data) {
   return prisma.livestockWeight.create({
     data,
@@ -209,6 +216,7 @@ export default {
   getBreedingRecordById,
   listBreedingRecordsForAnimal,
   createLivestockEvent,
+  listLivestockEventsForAnimal,
   createWeightRecord,
   listWeightRecordsForAnimal,
   createHealthRecord,

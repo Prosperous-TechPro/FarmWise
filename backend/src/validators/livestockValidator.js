@@ -156,6 +156,110 @@ export function validateMatingInput(data = {}) {
   };
 }
 
+function validateRequiredDate(value, fieldName, errors, allowFuture = true) {
+  if (!value) {
+    errors[fieldName] = `${fieldName} is required`;
+    return undefined;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    errors[fieldName] = `${fieldName} is invalid`;
+    return undefined;
+  }
+  if (!allowFuture && date > new Date()) errors[fieldName] = `${fieldName} cannot be in the future`;
+  return date;
+}
+
+function validateOptionalDate(value, fieldName, errors) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) errors[fieldName] = `${fieldName} is invalid`;
+  return date;
+}
+
+function validatePositiveNumber(value, fieldName, errors, required = true) {
+  if (value === undefined || value === null || value === '') {
+    if (required) errors[fieldName] = `${fieldName} is required`;
+    return undefined;
+  }
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) errors[fieldName] = `${fieldName} must be greater than 0`;
+  return number;
+}
+
+function validateText(value, fieldName, errors, required = true) {
+  if (value === undefined || value === null || value === '') {
+    if (required) errors[fieldName] = `${fieldName} is required`;
+    return undefined;
+  }
+  if (typeof value !== 'string' || !value.trim()) errors[fieldName] = `${fieldName} must be a non-empty string`;
+  return typeof value === 'string' ? value.trim() : undefined;
+}
+
+export function validateLivestockEvent(data = {}) {
+  const errors = {};
+  const eventTypes = ['BIRTH', 'ACQUISITION', 'WEIGHT_MEASUREMENT', 'FEEDING', 'VACCINATION', 'MEDICATION', 'TREATMENT', 'MATING', 'PREGNANCY', 'FARROWING', 'MORTALITY', 'SALE', 'TRANSFER', 'OTHER'];
+  const eventType = String(data.eventType || '').trim().toUpperCase();
+  const eventDate = validateRequiredDate(data.eventDate, 'eventDate', errors, false);
+  if (!eventTypes.includes(eventType)) errors.eventType = 'eventType is invalid';
+  const description = validateText(data.description, 'description', errors, false);
+  return { isValid: Object.keys(errors).length === 0, errors, normalizedData: { eventType, eventDate, description, details: data.details === undefined ? undefined : JSON.stringify(data.details) } };
+}
+
+export function validateLivestockWeight(data = {}) {
+  const errors = {};
+  const measurementDate = validateRequiredDate(data.measurementDate, 'measurementDate', errors, false);
+  const weight = validatePositiveNumber(data.weight, 'weight', errors);
+  const units = ['KILOGRAM', 'GRAM', 'POUND', 'OUNCE'];
+  const unit = String(data.unit || 'KILOGRAM').trim().toUpperCase();
+  if (!units.includes(unit)) errors.unit = 'unit is invalid';
+  return { isValid: Object.keys(errors).length === 0, errors, normalizedData: { weight, unit, measurementDate, measurementTime: validateOptionalDate(data.measurementTime, 'measurementTime', errors), recordedBy: validateText(data.recordedBy, 'recordedBy', errors, false), notes: validateText(data.notes, 'notes', errors, false) } };
+}
+
+export function validateLivestockHealth(data = {}) {
+  const errors = {};
+  const recordTypes = ['OBSERVATION', 'VACCINATION', 'MEDICATION', 'TREATMENT', 'DIAGNOSIS', 'SYMPTOM'];
+  const recordType = String(data.recordType || '').trim().toUpperCase();
+  const title = validateText(data.title, 'title', errors);
+  const eventDate = validateRequiredDate(data.eventDate, 'eventDate', errors, false);
+  if (!recordTypes.includes(recordType)) errors.recordType = 'recordType is invalid';
+  return { isValid: Object.keys(errors).length === 0, errors, normalizedData: { recordType, title, description: validateText(data.description, 'description', errors, false), veterinarian: validateText(data.veterinarian, 'veterinarian', errors, false), medication: validateText(data.medication, 'medication', errors, false), dosage: validateText(data.dosage, 'dosage', errors, false), followUpDate: validateOptionalDate(data.followUpDate, 'followUpDate', errors), eventDate } };
+}
+
+export function validateLivestockTreatment(data = {}) {
+  const errors = {};
+  const treatmentName = validateText(data.treatmentName, 'treatmentName', errors);
+  const startDate = validateOptionalDate(data.startDate, 'startDate', errors);
+  const endDate = validateOptionalDate(data.endDate, 'endDate', errors);
+  if (startDate && endDate && endDate < startDate) errors.endDate = 'endDate cannot be before startDate';
+  return { isValid: Object.keys(errors).length === 0, errors, normalizedData: { treatmentName, reason: validateText(data.reason, 'reason', errors, false), startDate, endDate, dosage: validateText(data.dosage, 'dosage', errors, false), unit: validateText(data.unit, 'unit', errors, false), administeredBy: validateText(data.administeredBy, 'administeredBy', errors, false), followUpDate: validateOptionalDate(data.followUpDate, 'followUpDate', errors), notes: validateText(data.notes, 'notes', errors, false) } };
+}
+
+export function validateLivestockVaccination(data = {}) {
+  const errors = {};
+  const vaccineName = validateText(data.vaccineName, 'vaccineName', errors);
+  const dateAdministered = validateRequiredDate(data.dateAdministered, 'dateAdministered', errors, false);
+  const nextDueDate = validateOptionalDate(data.nextDueDate, 'nextDueDate', errors);
+  if (dateAdministered && nextDueDate && nextDueDate < dateAdministered) errors.nextDueDate = 'nextDueDate cannot be before dateAdministered';
+  return { isValid: Object.keys(errors).length === 0, errors, normalizedData: { vaccineName, dateAdministered, dose: validateText(data.dose, 'dose', errors, false), route: validateText(data.route, 'route', errors, false), nextDueDate, administeredBy: validateText(data.administeredBy, 'administeredBy', errors, false), notes: validateText(data.notes, 'notes', errors, false) } };
+}
+
+export function validateLivestockFeeding(data = {}) {
+  const errors = {};
+  const feedType = validateText(data.feedType, 'feedType', errors);
+  const feedingDate = validateRequiredDate(data.feedingDate, 'feedingDate', errors, false);
+  const quantity = validatePositiveNumber(data.quantity, 'quantity', errors);
+  const units = ['KILOGRAM', 'GRAM', 'LITER', 'MILLILITER', 'BAG', 'PIECE', 'BUNCH', 'BASKET', 'OTHER'];
+  const quantityUnit = String(data.quantityUnit || '').trim().toUpperCase();
+  if (!units.includes(quantityUnit)) errors.quantityUnit = 'quantityUnit is invalid';
+  const cost = data.cost === undefined || data.cost === null || data.cost === '' ? undefined : Number(data.cost);
+  if (cost !== undefined && (!Number.isFinite(cost) || cost < 0)) errors.cost = 'cost cannot be negative';
+  const currencies = ['GHS', 'USD', 'EUR'];
+  const currency = String(data.currency || 'GHS').trim().toUpperCase();
+  if (!currencies.includes(currency)) errors.currency = 'currency is invalid';
+  return { isValid: Object.keys(errors).length === 0, errors, normalizedData: { feedType, quantity, quantityUnit, feedingDate, feedingTime: validateOptionalDate(data.feedingTime, 'feedingTime', errors), cost, currency, recordedBy: validateText(data.recordedBy, 'recordedBy', errors, false), notes: validateText(data.notes, 'notes', errors, false) } };
+}
+
 export default {
   DEFAULT_PIG_GESTATION_DAYS,
   SUPPORTED_LIVESTOCK_SEXES,
@@ -164,4 +268,10 @@ export default {
   calculateExpectedFarrowingDate,
   validateCreateLivestock,
   validateMatingInput,
+  validateLivestockEvent,
+  validateLivestockWeight,
+  validateLivestockHealth,
+  validateLivestockTreatment,
+  validateLivestockVaccination,
+  validateLivestockFeeding,
 };

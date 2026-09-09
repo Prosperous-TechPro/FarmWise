@@ -51,6 +51,12 @@ const config = {
     url: process.env.DATABASE_URL,
   },
 
+  // Redis-backed registration challenges
+  redis: {
+    url: process.env.REDIS_URL,
+    registrationChallengeTtlSeconds: parseInt(process.env.REGISTRATION_CHALLENGE_TTL_SECONDS || '900', 10),
+  },
+
   // JWT
   jwt: {
     secret: process.env.JWT_SECRET,
@@ -133,6 +139,9 @@ export function validateConfig() {
   if (config.isProduction) {
     if (!config.database.url) {
       errors.push('DATABASE_URL is required in production');
+    }
+    if (!config.redis.url) {
+      errors.push('REDIS_URL is required in production');
     }
     if (!config.jwt.secret) {
       errors.push('JWT_SECRET is required in production');

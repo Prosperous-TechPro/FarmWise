@@ -19,6 +19,7 @@ import {
 } from '../repositories/otpRepository.js';
 import { hashValue, generateOtp } from '../utils/crypto.js';
 import logger from '../utils/logger.js';
+import { registrationChallengeStore } from '../repositories/registrationChallengeStore.js';
 
 /**
  * Generate and send OTP
@@ -45,6 +46,7 @@ export async function generateAndSendOtp(options) {
     smsProvider,
     expiryMinutes = 10,
     length = 6,
+    replaceActive = false,
   } = options;
 
   try {
@@ -54,10 +56,15 @@ export async function generateAndSendOtp(options) {
     }
 
     // Check if user already has active OTP (prevent spam)
-    const hasActive = pendingRegistrationId
-      ? await hasActivePendingRegistrationOtp(pendingRegistrationId, purpose)
+    const registrationChallenge = pendingRegistrationId
+      ? await registrationChallengeStore.get(pendingRegistrationId)
+      : null;
+    const hasActive = registrationChallenge
+      ? registrationChallenge.otpExpiresAt && new Date(registrationChallenge.otpExpiresAt) > new Date()
+      : pendingRegistrationId
+        ? await hasActivePendingRegistrationOtp(pendingRegistrationId, purpose)
       : await hasActiveOtp(userId, purpose);
-    if (hasActive) {
+    if (hasActive && !replaceActive) {
       throw new Error('An OTP has already been sent. Please wait before requesting another.');
     }
 
@@ -70,14 +77,17 @@ export async function generateAndSendOtp(options) {
     expiresAt.setMinutes(expiresAt.getMinutes() + expiryMinutes);
 
     // Create OTP verification record
-    const otpRecord = await createOtpVerification({
-      userId,
-      pendingRegistrationId,
-      purpose,
-      channel,
-      codeHash: otpHash,
-      expiresAt,
-    });
+    const otpRecord = registrationChallenge
+      ? await registrationChallengeStore.update(pendingRegistrationId, {
+        otpHash,
+        otpExpiresAt: expiresAt.toISOString(),
+        attempts: 0,
+        maxAttempts: Number.parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10),
+        purpose,
+        channel,
+        lastSentAt: new Date().toISOString(),
+      })
+      : await createOtpVerification({ userId, pendingRegistrationId, purpose, channel, codeHash: otpHash, expiresAt });
 
     // Send OTP via appropriate channel
     let sendResult;
@@ -102,7 +112,11 @@ export async function generateAndSendOtp(options) {
     }
 
     if (!sendResult.success) {
-      await markOtpAsUsed(otpRecord.id);
+      if (registrationChallenge) {
+        await registrationChallengeStore.update(pendingRegistrationId, { otpHash: null, otpExpiresAt: null });
+      } else {
+        await markOtpAsUsed(otpRecord.id);
+      }
       logger.error(`OTP delivery failed`, {
         userId,
         pendingRegistrationId,
@@ -119,12 +133,12 @@ export async function generateAndSendOtp(options) {
       pendingRegistrationId,
       purpose,
       channel,
-      otpId: otpRecord.id,
+      otpId: otpRecord.id || pendingRegistrationId,
     });
 
     return {
       success: true,
-      otpId: otpRecord.id,
+      otpId: otpRecord.id || pendingRegistrationId,
       expiresIn: expiryMinutes * 60, // Return in seconds
     };
   } catch (error) {
@@ -157,7 +171,18 @@ export async function verifyOtp(options) {
     }
 
     // Find the latest OTP
-    const otpRecord = pendingRegistrationId
+    const registrationChallenge = pendingRegistrationId
+      ? await registrationChallengeStore.get(pendingRegistrationId)
+      : null;
+    const otpRecord = registrationChallenge
+      ? {
+        codeHash: registrationChallenge.otpHash,
+        expiresAt: new Date(registrationChallenge.otpExpiresAt),
+        isUsed: !registrationChallenge.otpHash,
+        attempts: registrationChallenge.attempts,
+        maxAttempts: registrationChallenge.maxAttempts || Number.parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10),
+      }
+      : pendingRegistrationId
       ? await findOtpByPendingRegistrationPurposeChannel(pendingRegistrationId, purpose, channel)
       : await findOtpByUserPurposeChannel(userId, purpose, channel);
 
@@ -187,7 +212,11 @@ export async function verifyOtp(options) {
 
     if (codeHash !== otpRecord.codeHash) {
       // Increment attempts
-      await incrementOtpAttempts(otpRecord.id);
+      if (registrationChallenge) {
+        await registrationChallengeStore.update(pendingRegistrationId, { attempts: registrationChallenge.attempts + 1 });
+      } else {
+        await incrementOtpAttempts(otpRecord.id);
+      }
 
       const remainingAttempts = otpRecord.maxAttempts - otpRecord.attempts - 1;
       throw new Error(
@@ -196,7 +225,11 @@ export async function verifyOtp(options) {
     }
 
     // Mark OTP as used
-    await markOtpAsUsed(otpRecord.id);
+    if (registrationChallenge) {
+      await registrationChallengeStore.update(pendingRegistrationId, { otpHash: null, otpExpiresAt: null });
+    } else {
+      await markOtpAsUsed(otpRecord.id);
+    }
 
     logger.info(`OTP verified successfully`, {
       userId,
@@ -238,6 +271,52 @@ export async function resendOtp(options) {
 
   try {
     if (pendingRegistrationId) {
+      const registrationChallenge = await registrationChallengeStore.get(pendingRegistrationId);
+      if (registrationChallenge) {
+        const cooldownSeconds = Number.parseInt(process.env.OTP_PENDING_RESEND_COOLDOWN_SECONDS || '60', 10);
+        const windowSeconds = Number.parseInt(process.env.OTP_PENDING_RESEND_WINDOW_SECONDS || '3600', 10);
+        const maxResends = Number.parseInt(process.env.OTP_PENDING_RESEND_MAX_ATTEMPTS || '5', 10);
+        const now = Date.now();
+        const lastSentAt = registrationChallenge.lastSentAt ? new Date(registrationChallenge.lastSentAt).getTime() : 0;
+        const windowStartedAt = registrationChallenge.resendWindowStartedAt
+          ? new Date(registrationChallenge.resendWindowStartedAt).getTime()
+          : now;
+        const cooldownRemaining = Math.ceil((lastSentAt + cooldownSeconds * 1000 - now) / 1000);
+        if (cooldownRemaining > 0) {
+          const error = new Error('Please wait before requesting another verification code.');
+          error.statusCode = 429;
+          error.retryAfter = cooldownRemaining;
+          throw error;
+        }
+        if (now - windowStartedAt >= windowSeconds * 1000) {
+          await registrationChallengeStore.update(pendingRegistrationId, {
+            resendCount: 0,
+            resendWindowStartedAt: new Date(now).toISOString(),
+          });
+        } else if ((registrationChallenge.resendCount || 0) >= maxResends) {
+          const retryAfter = Math.max(1, Math.ceil((windowStartedAt + windowSeconds * 1000 - now) / 1000));
+          const error = new Error('Too many verification code requests. Please try again later.');
+          error.statusCode = 429;
+          error.retryAfter = retryAfter;
+          throw error;
+        }
+
+        const result = await generateAndSendOtp({
+          userId,
+          pendingRegistrationId,
+          purpose,
+          channel,
+          destination,
+          emailProvider,
+          smsProvider,
+          replaceActive: true,
+        });
+        await registrationChallengeStore.update(pendingRegistrationId, {
+          resendCount: (registrationChallenge.resendCount || 0) + 1,
+        });
+        return { ...result, cooldownSeconds };
+      }
+
       const cooldownSeconds = Number.parseInt(process.env.OTP_PENDING_RESEND_COOLDOWN_SECONDS || '60', 10);
       const windowSeconds = Number.parseInt(process.env.OTP_PENDING_RESEND_WINDOW_SECONDS || '3600', 10);
       const maxResends = Number.parseInt(process.env.OTP_PENDING_RESEND_MAX_ATTEMPTS || '5', 10);

@@ -23,12 +23,13 @@ import {
   changePassword,
   resetPassword,
   createPendingRegistration,
-  completePendingRegistration,
+  verifyPendingRegistrationAndComplete,
 } from '../services/authService.js';
 import { generateAndSendOtp, verifyOtp, resendOtp } from '../services/otpService.js';
 import { findUserByEmail, findUserById, findUserByPhone, updateUser } from '../repositories/userRepository.js';
 import logger from '../utils/logger.js';
 import { findPendingRegistrationById } from '../repositories/pendingRegistrationRepository.js';
+import { registrationChallengeStore } from '../repositories/registrationChallengeStore.js';
 
 /**
  * POST /api/v1/auth/register
@@ -174,28 +175,22 @@ export async function verifyOtpEndpoint(req, res) {
     }
 
     // Verify OTP
-    await verifyOtp({
-      userId: pendingRegistrationId ? undefined : userId,
-      pendingRegistrationId,
-      purpose: 'ACCOUNT_VERIFICATION',
-      channel,
-      code,
-    });
-
     // Update user verification status
     if (pendingRegistrationId) {
-      const pendingRegistration = await findPendingRegistrationById(pendingRegistrationId);
-      if (!pendingRegistration) throw new Error('Pending registration not found');
-      if (pendingRegistration.verificationMethod !== channel) {
-        throw new Error('Verification channel does not match pending registration');
-      }
-      const user = await completePendingRegistration(pendingRegistrationId);
+      const user = await verifyPendingRegistrationAndComplete({ pendingRegistrationId, channel, code });
       return res.status(200).json({
         success: true,
         message: 'Account verified successfully. You can now log in.',
         data: { userId: user.id },
       });
     }
+
+    await verifyOtp({
+      userId,
+      purpose: 'ACCOUNT_VERIFICATION',
+      channel,
+      code,
+    });
 
     if (channel === 'EMAIL') {
       await verifyEmail(userId);
@@ -296,19 +291,23 @@ export async function resendOtpEndpoint(req, res) {
     }
 
     const user = pendingRegistrationId ? null : await findUserById(userId);
-    const pendingRegistration = pendingRegistrationId
+    const registrationChallenge = pendingRegistrationId
+      ? await registrationChallengeStore.get(pendingRegistrationId)
+      : null;
+    const pendingRegistration = pendingRegistrationId && !registrationChallenge
       ? await findPendingRegistrationById(pendingRegistrationId)
       : null;
-    if (!user && !pendingRegistration) {
+    const registrationTarget = registrationChallenge || pendingRegistration;
+    if (!user && !registrationTarget) {
       return res.status(404).json({ success: false, message: 'Registration target not found' });
     }
-    if (pendingRegistration && pendingRegistration.verificationMethod !== channel) {
+    if (registrationTarget && registrationTarget.verificationMethod !== channel) {
       return res.status(400).json({ success: false, message: 'Verification channel does not match pending registration' });
     }
 
     const destination = channel === 'EMAIL'
-      ? (pendingRegistration || user).email
-      : (pendingRegistration || user).phone;
+      ? (registrationTarget || user).email
+      : (registrationTarget || user).phone;
 
     // Resend OTP
     const result = await resendOtp({

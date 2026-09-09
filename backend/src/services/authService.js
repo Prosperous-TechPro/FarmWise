@@ -29,7 +29,6 @@ import {
 import logger from '../utils/logger.js';
 import prisma from '../lib/prisma.js';
 import {
-  createPendingRegistration as createPendingRegistrationRecord,
   findPendingRegistrationById,
   findPendingRegistrationByEmail,
   findPendingRegistrationByPhone,
@@ -37,6 +36,8 @@ import {
 import { getActiveWorkerOnboarding } from './workerOnboardingService.js';
 import { rotateWorkerOnboardingToken } from '../repositories/workerOnboardingRepository.js';
 import { validateRegistration } from '../validators/authValidator.js';
+import { verifyOtp as verifyOtpCode } from './otpService.js';
+import { registrationChallengeStore } from '../repositories/registrationChallengeStore.js';
 
 /**
  * Register a new user
@@ -76,7 +77,7 @@ export async function createPendingRegistration(options) {
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    const pendingRegistration = await createPendingRegistrationRecord({
+    const pendingRegistration = await registrationChallengeStore.create({
       email,
       phone,
       firstName,
@@ -85,15 +86,15 @@ export async function createPendingRegistration(options) {
       verificationMethod,
     });
 
-    logger.info(`Pending registration created`, {
-      pendingRegistrationId: pendingRegistration.id,
+    logger.info(`Registration challenge created`, {
+      pendingRegistrationId: pendingRegistration.challengeId,
       email: pendingRegistration.email,
       verificationMethod,
     });
 
     return {
       success: true,
-      pendingRegistrationId: pendingRegistration.id,
+      pendingRegistrationId: pendingRegistration.challengeId,
       email: pendingRegistration.email,
       verificationMethod,
     };
@@ -108,7 +109,7 @@ export async function createPendingRegistration(options) {
   }
 }
 
-export async function completePendingRegistration(pendingRegistrationId) {
+async function completePendingRegistration(pendingRegistrationId) {
   const pendingRegistration = await findPendingRegistrationById(pendingRegistrationId);
 
   if (!pendingRegistration) {
@@ -147,6 +148,68 @@ export async function completePendingRegistration(pendingRegistrationId) {
 
     return user;
   });
+}
+
+async function completeRegistrationChallenge(challengeId, challenge) {
+  const user = await prisma.$transaction(async (transaction) => {
+    const createdUser = await transaction.user.create({
+      data: {
+        email: challenge.email,
+        phone: challenge.phone,
+        firstName: challenge.firstName,
+        lastName: challenge.lastName,
+        passwordHash: challenge.passwordHash,
+        emailVerified: challenge.verificationMethod === 'EMAIL',
+        emailVerifiedAt: challenge.verificationMethod === 'EMAIL' ? new Date() : null,
+        phoneVerified: challenge.verificationMethod === 'SMS',
+        phoneVerifiedAt: challenge.verificationMethod === 'SMS' ? new Date() : null,
+        status: 'ACTIVE',
+      },
+    });
+
+    const ownerRole = await transaction.role.upsert({
+      where: { name: 'FARM_OWNER' },
+      update: {},
+      create: { name: 'FARM_OWNER', description: 'Farm owner access' },
+    });
+
+    await transaction.userRole.create({ data: { userId: createdUser.id, roleId: ownerRole.id } });
+    return createdUser;
+  });
+
+  await registrationChallengeStore.delete(challengeId);
+  return user;
+}
+
+export async function verifyPendingRegistrationAndComplete({ pendingRegistrationId, channel, code }) {
+  const challenge = await registrationChallengeStore.get(pendingRegistrationId);
+  if (challenge) {
+    if (challenge.verificationMethod !== channel) {
+      throw new Error('Verification channel does not match pending registration');
+    }
+
+    await verifyOtpCode({ pendingRegistrationId, purpose: 'ACCOUNT_VERIFICATION', channel, code });
+    return completeRegistrationChallenge(pendingRegistrationId, challenge);
+  }
+
+  const pendingRegistration = await findPendingRegistrationById(pendingRegistrationId);
+
+  if (!pendingRegistration) {
+    throw new Error('Pending registration not found');
+  }
+
+  if (pendingRegistration.verificationMethod !== channel) {
+    throw new Error('Verification channel does not match pending registration');
+  }
+
+  await verifyOtpCode({
+    pendingRegistrationId,
+    purpose: 'ACCOUNT_VERIFICATION',
+    channel,
+    code,
+  });
+
+  return completePendingRegistration(pendingRegistrationId);
 }
 
 /**
@@ -582,7 +645,7 @@ export async function resetPassword(options) {
 export default {
   registerUser,
   createPendingRegistration,
-  completePendingRegistration,
+  verifyPendingRegistrationAndComplete,
   verifyEmail,
   verifyPhone,
   login,

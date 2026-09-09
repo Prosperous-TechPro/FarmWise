@@ -32,6 +32,8 @@ Copy `.env.example` from root and configure:
 NODE_ENV=development
 PORT=3000
 DATABASE_URL=postgresql://user:password@localhost:5432/farmwise_db
+REDIS_URL=redis://localhost:6379
+REGISTRATION_CHALLENGE_TTL_SECONDS=900
 CORS_ORIGIN=http://localhost:5173,http://localhost:3000
 JWT_SECRET=your_secret_key
 ```

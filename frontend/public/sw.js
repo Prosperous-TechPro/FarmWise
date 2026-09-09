@@ -6,7 +6,7 @@ const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.svg',
+  '/icon.svg',
 ];
 
 // Install event - cache assets

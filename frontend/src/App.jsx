@@ -108,6 +108,21 @@ function AppContent() {
     setToken(null); setUser(null); setOverview(null); setFarms([]);
   };
 
+  const updateWorkspaceFarms = (update) => {
+    setFarms((currentFarms) => {
+      const nextFarms = update(currentFarms);
+      try {
+        const cached = getCachedWorkspace() || {};
+        sessionStorage.setItem(WORKSPACE_CACHE_KEY, JSON.stringify({
+          ...cached,
+          overview: overview || cached.overview || null,
+          farms: nextFarms,
+        }));
+      } catch { /* cache is optional */ }
+      return nextFarms;
+    });
+  };
+
   const loadWorkspace = async () => {
     const requestId = ++workspaceRequestRef.current;
     setLoading(true); setNotice(null);
@@ -203,7 +218,7 @@ function AppContent() {
   return (
     <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)}>
       {view === 'dashboard' && (isWorker ? <WorkerDashboard dashboard={workerDashboard} user={user} loading={loading} /> : <Dashboard overview={overview} farmDashboard={farmDashboard} farmDashboardError={farmDashboardError} selectedFarmId={selectedFarmId} onFarmChange={setSelectedFarmId} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />)}
-        {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { setFarms([...farms, farm]); setNotice('Farm created successfully.'); }} onUpdated={(farm) => { setFarms(farms.map((item) => item.id === farm.id ? farm : item)); setNotice('Farm updated successfully.'); }} onDeleted={(farmId) => { setFarms(farms.filter((item) => item.id !== farmId)); setNotice('Farm deleted successfully.'); }} />}
+        {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { updateWorkspaceFarms((currentFarms) => [...currentFarms, farm]); void loadWorkspace(); setNotice('Farm created successfully.'); }} onUpdated={(farm) => { updateWorkspaceFarms((currentFarms) => currentFarms.map((item) => item.id === farm.id ? farm : item)); void loadWorkspace(); setNotice('Farm updated successfully.'); }} onDeleted={(farmId) => { updateWorkspaceFarms((currentFarms) => currentFarms.filter((item) => item.id !== farmId)); void loadWorkspace(); setNotice('Farm deleted successfully.'); }} />}
         {view === 'records' && <Records farms={farms} isSystemAdmin={isSystemAdmin} />}
         {view === 'projects' && <Projects farms={farms} />}
         {view === 'community' && <CommunityFeed user={user} />}

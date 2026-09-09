@@ -36,6 +36,7 @@ import {
 } from '../repositories/pendingRegistrationRepository.js';
 import { getActiveWorkerOnboarding } from './workerOnboardingService.js';
 import { rotateWorkerOnboardingToken } from '../repositories/workerOnboardingRepository.js';
+import { validateRegistration } from '../validators/authValidator.js';
 
 /**
  * Register a new user
@@ -53,7 +54,15 @@ export async function registerUser(options) {
 }
 
 export async function createPendingRegistration(options) {
-  const { email, phone, firstName, lastName, password, verificationMethod } = options;
+  const validation = validateRegistration(options);
+  if (!validation.isValid) {
+    const error = new Error('Registration validation failed');
+    error.statusCode = 400;
+    error.validationErrors = validation.errors;
+    throw error;
+  }
+
+  const { email, phone, firstName, lastName, password, verificationMethod } = validation.normalizedData;
 
   try {
     if (email && (await emailExists(email) || await findPendingRegistrationByEmail(email))) {

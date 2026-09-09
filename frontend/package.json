@@ -12,6 +12,9 @@
     "format": "prettier --write \"src/**/*.{js,jsx,css}\""
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/cli": "^8.5.1",
+    "@capacitor/core": "^8.5.1",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "react": "^18.2.0",
@@ -21,7 +24,12 @@
     "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^8.42.0",
     "eslint-plugin-react": "^7.32.2",
+    "lightningcss": "^1.33.0",
+    "picomatch": "^4.0.7",
+    "postcss": "^8.5.28",
     "prettier": "^2.8.8",
+    "rolldown": "~1.2.4",
+    "tinyglobby": "^0.2.17",
     "vite": "^8.2.2"
   },
   "browserslist": [

@@ -13,7 +13,10 @@
     "dev": "npm run dev --workspace=frontend & npm run dev --workspace=backend",
     "build": "npm run build --workspace=frontend && npm run build --workspace=backend",
     "test": "npm test --workspace=frontend && npm test --workspace=backend",
-    "lint": "npm run lint --workspace=frontend && npm run lint --workspace=backend"
+    "lint": "npm run lint --workspace=frontend && npm run lint --workspace=backend",
+    "desktop-install": "cd desktop && npm install",
+    "desktop": "cd desktop && npm run start",
+    "desktop-build": "cd desktop && npx electron-builder --win portable --publish never"
   },
   "keywords": [
     "agriculture",

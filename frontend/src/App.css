@@ -1,4 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+.notice.success { color:#166534; background:#dcfce7; border-color:#86efac; }
+.primary-button { color:#fff; background:var(--green); box-shadow:0 12px 24px rgba(23,107,67,.2); }
+.primary-button:hover { color:#fff; background:#0f5836; }
+.outline-button { color:#fff; border:1px solid var(--lime); background:#1d6548; }
+.text-button { color:#14532d; text-decoration:underline; text-underline-offset:3px; }
+button:focus-visible { outline:3px solid var(--lime); outline-offset:3px; }
 .otp-inputs { display:flex; gap:10px; margin-top:8px; }
 .otp-digit { width:48px; height:58px; margin:0; padding:0; border:1px solid var(--line); border-radius:6px; color:var(--ink); background:#fbfdf9; font:600 24px 'Space Grotesk',sans-serif; text-align:center; }
 .otp-digit:focus { border-color:var(--green); outline:0; box-shadow:0 0 0 3px rgba(23,107,67,.12); }

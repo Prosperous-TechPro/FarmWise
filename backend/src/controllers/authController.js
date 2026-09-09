@@ -60,7 +60,13 @@ export async function register(req, res) {
 
     // Register user
     const result = await createPendingRegistration({
-      ...validation.normalizedData,
+      email,
+      phone,
+      firstName,
+      lastName,
+      password,
+      confirmPassword,
+      verificationMethod,
     });
 
     // Generate and send OTP
@@ -128,10 +134,10 @@ export async function register(req, res) {
       });
     }
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Registration failed',
-      errors: { server: error.message },
+      message: error.statusCode === 400 ? 'Validation failed' : 'Registration failed',
+      errors: error.statusCode === 400 ? error.validationErrors : { server: error.message },
     });
   }
 }

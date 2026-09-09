@@ -15,6 +15,7 @@ import './App.css';
 const TOKEN_KEY = 'farmwise.accessToken';
 const WORKSPACE_CACHE_KEY = 'farmwise.workspace';
 const PENDING_REGISTRATION_KEY = 'farmwise.pendingRegistration';
+const THEME_KEY = 'farmwise.theme';
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 
 function navigate(path) {
@@ -68,6 +69,12 @@ function AppContent() {
   const isWorker = hasWorkerRole(user) && !isSystemAdmin;
   const [workerDashboard, setWorkerDashboard] = useState(null);
   const [pathname, setPathname] = useState(window.location.pathname);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem(THEME_KEY) === 'dark');
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = darkMode ? 'dark' : 'light';
+    localStorage.setItem(THEME_KEY, darkMode ? 'dark' : 'light');
+  }, [darkMode]);
 
   useEffect(() => {
     const onPopState = () => setPathname(window.location.pathname);
@@ -216,7 +223,7 @@ function AppContent() {
   }
 
   return (
-    <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)}>
+    <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)} darkMode={darkMode} onToggleTheme={() => setDarkMode((current) => !current)}>
       {view === 'dashboard' && (isWorker ? <WorkerDashboard dashboard={workerDashboard} user={user} loading={loading} /> : <Dashboard overview={overview} farmDashboard={farmDashboard} farmDashboardError={farmDashboardError} selectedFarmId={selectedFarmId} onFarmChange={setSelectedFarmId} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />)}
         {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { updateWorkspaceFarms((currentFarms) => [...currentFarms, farm]); void loadWorkspace(); setNotice('Farm created successfully.'); }} onUpdated={(farm) => { updateWorkspaceFarms((currentFarms) => currentFarms.map((item) => item.id === farm.id ? farm : item)); void loadWorkspace(); setNotice('Farm updated successfully.'); }} onDeleted={(farmId) => { updateWorkspaceFarms((currentFarms) => currentFarms.filter((item) => item.id !== farmId)); void loadWorkspace(); setNotice('Farm deleted successfully.'); }} />}
         {view === 'records' && <Records farms={farms} isSystemAdmin={isSystemAdmin} />}

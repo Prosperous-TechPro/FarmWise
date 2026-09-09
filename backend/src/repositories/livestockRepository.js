@@ -99,6 +99,27 @@ export async function listLivestockBreeds(speciesId) {
   });
 }
 
+export async function ensureLivestockBreed(speciesId, breedName) {
+  const trimmedName = typeof breedName === 'string' ? breedName.trim() : '';
+  if (!speciesId || !trimmedName) {
+    return null;
+  }
+
+  return prisma.livestockBreed.upsert({
+    where: {
+      speciesId_name: {
+        speciesId,
+        name: trimmedName,
+      },
+    },
+    update: {},
+    create: {
+      speciesId,
+      name: trimmedName,
+    },
+  });
+}
+
 export async function createBreedingRecord(data) {
   return prisma.breedingRecord.create({
     data,

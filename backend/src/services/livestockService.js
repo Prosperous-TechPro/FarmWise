@@ -19,6 +19,7 @@ import {
   createBreedingRecord,
   deleteLivestock,
   ensureDefaultLivestockSpecies,
+  ensureLivestockBreed,
   getLivestockById,
   listBreedingRecordsForAnimal,
   listLivestockBreeds,
@@ -82,9 +83,14 @@ export async function createLivestockService(farmId, input) {
     throw error;
   }
 
+  const breedName = validation.normalizedData.breedName;
+  const breed = breedName ? await ensureLivestockBreed(validation.normalizedData.speciesId, breedName) : null;
+
   return createLivestock({
     farmId,
     ...validation.normalizedData,
+    breedId: breed ? breed.id : validation.normalizedData.breedId,
+    breedName: undefined,
   });
 }
 
@@ -127,7 +133,14 @@ export async function updateLivestockService(farmId, livestockId, input) {
     throw error;
   }
 
-  return updateLivestock(livestockId, validation.normalizedData);
+  const breedName = validation.normalizedData.breedName;
+  const breed = breedName ? await ensureLivestockBreed(validation.normalizedData.speciesId, breedName) : null;
+
+  return updateLivestock(livestockId, {
+    ...validation.normalizedData,
+    breedId: breed ? breed.id : validation.normalizedData.breedId,
+    breedName: undefined,
+  });
 }
 
 export async function deleteLivestockService(farmId, livestockId) {

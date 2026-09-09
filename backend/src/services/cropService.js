@@ -177,6 +177,90 @@ export async function createCropCycleService(farmId, input, actor = {}) {
   return cycle;
 }
 
+function toNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sumQuantity(rows, key) {
+  if (!Array.isArray(rows)) return 0;
+  return rows.reduce((total, row) => {
+    const quantity = toNumber(row?.[key] ?? row?.quantity ?? 0);
+    return total + quantity;
+  }, 0);
+}
+
+export function buildCropCycleSummary(cycle = {}) {
+  const activities = Array.isArray(cycle.activities) ? cycle.activities : [];
+  const inputs = Array.isArray(cycle.inputs) ? cycle.inputs : [];
+  const observations = Array.isArray(cycle.observations) ? cycle.observations : [];
+  const harvests = Array.isArray(cycle.harvests) ? cycle.harvests : [];
+  const produce = Array.isArray(cycle.produce) ? cycle.produce : [];
+  const sales = Array.isArray(cycle.sales) ? cycle.sales : [];
+  const expenses = Array.isArray(cycle.expenses) ? cycle.expenses : [];
+
+  const harvestQuantity = sumQuantity(harvests, 'quantity');
+  const produceQuantity = sumQuantity(produce, 'quantity');
+  const totalHarvest = harvestQuantity || produceQuantity;
+  const totalRevenue = sales.reduce((total, row) => total + toNumber(row?.totalAmount ?? row?.amount ?? 0), 0);
+  const totalExpenses = expenses.reduce((total, row) => total + toNumber(row?.amount ?? 0), 0);
+
+  const timeline = [
+    ...activities.map((item) => ({
+      label: item.activityType || 'ACTIVITY',
+      date: item.activityDate || item.createdAt || null,
+      description: item.description || 'Field activity',
+      type: 'activity',
+    })),
+    ...inputs.map((item) => ({
+      label: `INPUT: ${item.inputName || item.inputType || 'Input'}`,
+      date: item.applicationDate || item.createdAt || null,
+      description: `${item.quantity || 0} ${item.unit || ''}`.trim() || 'Input applied',
+      type: 'input',
+    })),
+    ...observations.map((item) => ({
+      label: 'OBSERVATION',
+      date: item.observationDate || item.createdAt || null,
+      description: item.observation || 'Field observation',
+      type: 'observation',
+    })),
+    ...harvests.map((item) => ({
+      label: 'HARVEST',
+      date: item.harvestDate || item.createdAt || null,
+      description: `${item.quantity || 0} ${item.quantityUnit || cycle.yieldUnit || 'KG'}`,
+      type: 'harvest',
+    })),
+    ...sales.map((item) => ({
+      label: 'SALE',
+      date: item.saleDate || item.createdAt || null,
+      description: `${toNumber(item.totalAmount ?? item.amount ?? 0).toLocaleString()} revenue`,
+      type: 'sale',
+    })),
+    ...expenses.map((item) => ({
+      label: 'EXPENSE',
+      date: item.expenseDate || item.createdAt || null,
+      description: `${toNumber(item.amount ?? 0).toLocaleString()} cost`,
+      type: 'expense',
+    })),
+  ].filter((item) => item.date).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const summary = {
+    totalActivities: activities.length,
+    totalInputs: inputs.length,
+    totalObservations: observations.length,
+    totalHarvest,
+    totalRevenue,
+    totalExpenses,
+    netProfit: totalRevenue - totalExpenses,
+    expectedYield: toNumber(cycle.expectedYield ?? 0),
+    actualYield: toNumber(cycle.actualYield ?? totalHarvest),
+    yieldUnit: cycle.yieldUnit || 'KG',
+    timeline: timeline.slice(0, 10),
+  };
+
+  return summary;
+}
+
 export async function getCropCycleDetailService(farmId, cropCycleId) {
   const cycle = await getCropCycleById(cropCycleId);
   if (!cycle) {
@@ -191,7 +275,10 @@ export async function getCropCycleDetailService(farmId, cropCycleId) {
     throw error;
   }
 
-  return cycle;
+  return {
+    ...cycle,
+    summary: buildCropCycleSummary(cycle),
+  };
 }
 
 export async function updateCropCycleService(farmId, cropCycleId, input, actor = {}) {

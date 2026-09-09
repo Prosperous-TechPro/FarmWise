@@ -7,6 +7,7 @@ import {
   validateCreateCropObservation,
   validateCreateHarvest,
 } from './cropValidator.js';
+import { buildCropCycleSummary } from '../services/cropService.js';
 
 test('validateCreateCropCycle accepts valid cycle data', () => {
   const result = validateCreateCropCycle({
@@ -106,4 +107,46 @@ test('validateCreateCropCycle accepts harvested and archived statuses', () => {
     assert.equal(result.isValid, true);
     assert.equal(result.normalizedData.status, status);
   }
+});
+
+test('buildCropCycleSummary calculates production totals and timeline', () => {
+  const summary = buildCropCycleSummary({
+    activities: [
+      { activityType: 'PLANTING', activityDate: '2026-05-10T00:00:00.000Z', description: 'Planted maize' },
+      { activityType: 'IRRIGATION', activityDate: '2026-06-04T00:00:00.000Z', description: 'Irrigation applied' },
+    ],
+    inputs: [
+      { inputName: 'NPK', quantity: 40, unit: 'KG', applicationDate: '2026-05-12T00:00:00.000Z' },
+      { inputName: 'Seed', quantity: 50, unit: 'KG', applicationDate: '2026-05-10T00:00:00.000Z' },
+    ],
+    observations: [
+      { observation: 'Good emergence', severity: 'LOW', observationDate: '2026-05-20T00:00:00.000Z' },
+    ],
+    harvests: [
+      { quantity: 800, quantityUnit: 'KG', harvestDate: '2026-08-30T00:00:00.000Z' },
+    ],
+    produce: [
+      { quantity: 750, unit: 'KG', status: 'HARVESTED', produceDate: '2026-08-30T00:00:00.000Z' },
+    ],
+    sales: [
+      { totalAmount: 12000, saleDate: '2026-09-02T00:00:00.000Z' },
+      { totalAmount: 3500, saleDate: '2026-09-05T00:00:00.000Z' },
+    ],
+    expenses: [
+      { amount: 3000, expenseDate: '2026-05-11T00:00:00.000Z' },
+      { amount: 1250, expenseDate: '2026-06-01T00:00:00.000Z' },
+    ],
+    expectedYield: 900,
+    actualYield: 800,
+    yieldUnit: 'KG',
+  });
+
+  assert.equal(summary.totalActivities, 2);
+  assert.equal(summary.totalInputs, 2);
+  assert.equal(summary.totalObservations, 1);
+  assert.equal(summary.totalHarvest, 800);
+  assert.equal(summary.totalRevenue, 15500);
+  assert.equal(summary.totalExpenses, 4250);
+  assert.equal(summary.netProfit, 11250);
+  assert.equal(summary.timeline[0].label, 'PLANTING');
 });

@@ -83,12 +83,16 @@ export function validateCreateLivestock(data = {}) {
     return { isValid: false, errors };
   }
 
+  const breedId = typeof data.breedId === 'string' && data.breedId.trim() ? data.breedId.trim() : undefined;
+  const breedName = typeof data.breedName === 'string' ? data.breedName.trim() : typeof data.breed === 'string' ? data.breed.trim() : undefined;
+
   return {
     isValid: true,
     errors: {},
     normalizedData: {
       speciesId,
-      breedId: typeof data.breedId === 'string' && data.breedId.trim() ? data.breedId.trim() : undefined,
+      breedId,
+      breedName: breedName || undefined,
       tagNumber,
       name: name || undefined,
       sex: sex || undefined,

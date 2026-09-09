@@ -76,6 +76,22 @@ test('validateCreateLivestock accepts valid generic livestock data', () => {
   assert.equal(result.normalizedData.sex, 'FEMALE');
 });
 
+test('validateCreateLivestock accepts a custom typed breed name', () => {
+  const result = validateCreateLivestock({
+    speciesId: 'species-1',
+    breedName: 'Large White',
+    tagNumber: 'PIG-010',
+    name: 'Luna',
+    sex: 'FEMALE',
+    status: 'ACTIVE',
+    acquisitionType: 'BORN_ON_FARM',
+    dateOfBirth: '2025-06-15T00:00:00Z',
+  });
+
+  assert.equal(result.isValid, true);
+  assert.equal(result.normalizedData.breedName, 'Large White');
+});
+
 test('historical livestock validators accept valid records', () => {
   assert.equal(validateLivestockEvent({ eventType: 'BIRTH', eventDate: '2026-01-15', description: 'Born on farm' }).isValid, true);
   assert.equal(validateLivestockWeight({ weight: 42, unit: 'KILOGRAM', measurementDate: '2026-02-01' }).isValid, true);

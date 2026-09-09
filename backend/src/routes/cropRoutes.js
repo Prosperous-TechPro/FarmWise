@@ -14,6 +14,7 @@ import {
   createCropObservation,
   createCropVariety,
   getCropCycle,
+  getCropCycleSummary,
   listCropActivities,
   listCropGrowthRecords,
   listCropInputs,
@@ -38,6 +39,7 @@ router.post('/crops/:cropId/varieties', requirePermission('MANAGE_FARM'), asyncH
 router.get('/farms/:farmId/crops', requireFarmAccess, requirePermission('VIEW_CROP'), asyncHandler(listFarmCropCycles));
 router.post('/farms/:farmId/crops', requireFarmAccess, requirePermission('CREATE_CROP_RECORD'), asyncHandler(createCropCycle));
 router.get('/farms/:farmId/crops/:cropCycleId', requireFarmAccess, requirePermission('VIEW_CROP'), asyncHandler(getCropCycle));
+router.get('/farms/:farmId/crops/:cropCycleId/summary', requireFarmAccess, requirePermission('VIEW_CROP'), asyncHandler(getCropCycleSummary));
 router.put('/farms/:farmId/crops/:cropCycleId', requireFarmAccess, requirePermission('UPDATE_CROP_RECORD'), asyncHandler(updateCropCycle));
 router.post('/farms/:farmId/crops/:cropCycleId/archive', requireFarmAccess, requirePermission('UPDATE_CROP_RECORD'), asyncHandler(archiveCropCycle));
 router.delete('/farms/:farmId/crops/:cropCycleId', requireFarmAccess, requireFarmRole(['OWNER', 'MANAGER', 'WORKER']), asyncHandler(deleteCropCycle));

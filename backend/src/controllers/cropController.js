@@ -71,6 +71,11 @@ export async function getCropCycle(req, res) {
   return res.status(200).json({ success: true, data: cycle, message: 'Crop cycle retrieved successfully' });
 }
 
+export async function getCropCycleSummary(req, res) {
+  const cycle = await getCropCycleDetailService(req.params.farmId, req.params.cropCycleId);
+  return res.status(200).json({ success: true, data: cycle.summary, message: 'Crop cycle summary retrieved successfully' });
+}
+
 export async function updateCropCycle(req, res) {
   const cycle = await updateCropCycleService(req.params.farmId, req.params.cropCycleId, req.body, { userId: req.user.id, req });
   return res.status(200).json({ success: true, data: cycle, message: 'Crop cycle updated successfully' });
@@ -134,9 +139,10 @@ export default {
   listFarmCropCycles,
   createCropCycle,
   getCropCycle,
+  getCropCycleSummary,
   updateCropCycle,
   archiveCropCycle,
-    deleteCropCycle,
+  deleteCropCycle,
   listCropActivities,
   createCropActivity,
   listCropInputs,

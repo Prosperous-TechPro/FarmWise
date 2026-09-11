@@ -13,9 +13,9 @@ export default function DashboardLayout({ children, view, onViewChange, user, is
 
   return (
     <div className="dashboard-layout">
-      <Sidebar activeView={view} isOpen={sidebarOpen} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onViewChange={changeView} onClose={() => setSidebarOpen(false)} />
+      <Sidebar activeView={view} isOpen={sidebarOpen} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onViewChange={changeView} onClose={() => setSidebarOpen(false)} onSignOut={onSignOut} />
       <div className="dashboard-main">
-        <Topbar user={user} onSignOut={onSignOut} onNotifications={onNotifications} onMenu={() => setSidebarOpen(true)} darkMode={darkMode} onToggleTheme={onToggleTheme} />
+        <Topbar user={user} onNotifications={onNotifications} onMenu={() => setSidebarOpen(true)} darkMode={darkMode} onToggleTheme={onToggleTheme} />
         <main className="main-content">
           {notice && <div className={`notice ${notice.type || 'error'}`} role="alert">{notice.message || notice}<button type="button" onClick={onDismissNotice} aria-label="Dismiss notification">×</button></div>}
           {loading && <div className="loading-line" aria-label="Loading" />}

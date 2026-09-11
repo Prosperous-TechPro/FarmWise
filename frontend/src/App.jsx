@@ -62,6 +62,7 @@ function AppContent() {
   const [farmDashboard, setFarmDashboard] = useState(null);
   const [farmDashboardError, setFarmDashboardError] = useState('');
   const [notice, setNotice] = useState(null);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const workspaceRequestRef = useRef(0);
   const isSystemAdmin = hasSystemAdminRole(user);
@@ -113,6 +114,15 @@ function AppContent() {
     sessionStorage.removeItem(WORKSPACE_CACHE_KEY);
     apiClient.setAuthToken(null);
     setToken(null); setUser(null); setOverview(null); setFarms([]);
+    setUnreadNotificationCount(0);
+  };
+
+  const refreshUnreadNotificationCount = async () => {
+    if (!token) return;
+    try {
+      const result = await apiClient.get('/notifications');
+      setUnreadNotificationCount((result.data || []).filter((item) => item.status === 'UNREAD').length);
+    } catch { /* notification count is non-critical */ }
   };
 
   const updateWorkspaceFarms = (update) => {
@@ -189,6 +199,13 @@ function AppContent() {
   }, [token, view]);
 
   useEffect(() => {
+    if (!token) return undefined;
+    refreshUnreadNotificationCount();
+    const interval = window.setInterval(refreshUnreadNotificationCount, 30000);
+    return () => window.clearInterval(interval);
+  }, [token, view]);
+
+  useEffect(() => {
     if (!farms.length) {
       setSelectedFarmId('');
       setFarmDashboard(null);
@@ -223,13 +240,13 @@ function AppContent() {
   }
 
   return (
-    <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onSignOut={signOut} onNotifications={() => setView('notifications')} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)} darkMode={darkMode} onToggleTheme={() => setDarkMode((current) => !current)}>
+    <DashboardLayout view={view} onViewChange={setView} user={user} isSystemAdmin={isSystemAdmin} isWorker={isWorker} onSignOut={signOut} onNotifications={() => setView('notifications')} unreadNotificationCount={unreadNotificationCount} loading={loading} notice={notice} onDismissNotice={() => setNotice(null)} darkMode={darkMode} onToggleTheme={() => setDarkMode((current) => !current)}>
       {view === 'dashboard' && (isWorker ? <WorkerDashboard dashboard={workerDashboard} user={user} loading={loading} /> : <Dashboard overview={overview} farmDashboard={farmDashboard} farmDashboardError={farmDashboardError} selectedFarmId={selectedFarmId} onFarmChange={setSelectedFarmId} farms={farms} loading={loading} onViewFarms={() => setView('farms')} isSystemAdmin={isSystemAdmin} onViewChange={setView} />)}
         {view === 'farms' && <Farms farms={farms} onCreated={(farm) => { updateWorkspaceFarms((currentFarms) => [...currentFarms, farm]); void loadWorkspace(); setNotice({ type: 'success', message: 'Farm created successfully.' }); }} onUpdated={(farm) => { updateWorkspaceFarms((currentFarms) => currentFarms.map((item) => item.id === farm.id ? farm : item)); void loadWorkspace(); setNotice({ type: 'success', message: 'Farm updated successfully.' }); }} onDeleted={(farmId) => { updateWorkspaceFarms((currentFarms) => currentFarms.filter((item) => item.id !== farmId)); void loadWorkspace(); setNotice({ type: 'success', message: 'Farm deleted successfully.' }); }} />}
         {view === 'records' && <Records farms={farms} isSystemAdmin={isSystemAdmin} />}
         {view === 'projects' && <Projects farms={farms} />}
         {view === 'community' && <CommunityFeed user={user} />}
-        {view === 'notifications' && <Notifications />}
+        {view === 'notifications' && <Notifications onUnreadCountChange={setUnreadNotificationCount} />}
         {view === 'account' && <Account user={user} onUpdated={(updatedUser) => { setUser(updatedUser); localStorage.setItem('farmwise.user', JSON.stringify(updatedUser)); setNotice({ type: 'success', message: 'Profile updated successfully.' }); }} onPasswordChanged={signOut} />}
         {view === 'about' && <AboutFarmWise />}
         {view === 'users' && <UserManagement isSuperAdmin={isSuperAdmin} />}
@@ -850,10 +867,10 @@ function CommunityPost({ post, onLike, currentUserId, onEdit, onDelete, onSaveEd
   );
 }
 
-function Notifications() {
+function Notifications({ onUnreadCountChange }) {
   const [items, setItems] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
-  useEffect(() => { apiClient.get('/notifications').then((result) => setItems(result.data || [])).catch((err) => setError(err.message || 'Unable to load notifications.')).finally(() => setLoading(false)); }, []);
-  const markRead = async (item) => { if (item.status !== 'UNREAD') return; try { await apiClient.patch(`/notifications/${item.id}/read`, {}); setItems(items.map((entry) => entry.id === item.id ? { ...entry, status: 'READ' } : entry)); } catch (err) { setError(err.message || 'Unable to mark notification as read.'); } };
+  useEffect(() => { apiClient.get('/notifications').then((result) => { const nextItems = result.data || []; setItems(nextItems); onUnreadCountChange(nextItems.filter((item) => item.status === 'UNREAD').length); }).catch((err) => setError(err.message || 'Unable to load notifications.')).finally(() => setLoading(false)); }, [onUnreadCountChange]);
+  const markRead = async (item) => { if (item.status !== 'UNREAD') return; try { await apiClient.patch(`/notifications/${item.id}/read`, {}); const nextItems = items.map((entry) => entry.id === item.id ? { ...entry, status: 'READ' } : entry); setItems(nextItems); onUnreadCountChange(nextItems.filter((entry) => entry.status === 'UNREAD').length); } catch (err) { setError(err.message || 'Unable to mark notification as read.'); } };
   return <section><div className="section-heading"><div><p className="eyebrow">INBOX</p><h2>Notifications</h2><p className="muted">Updates and activity connected to your FarmWise account.</p></div></div>{error && <div className="notice error">{error}</div>}{loading ? <div className="loading-line" aria-label="Loading notifications" /> : <div className="notification-list">{items.map((item) => <button className={`notification-item ${item.status === 'UNREAD' ? 'unread' : ''}`} key={item.id} onClick={() => markRead(item)}><span className="notification-item-icon">&#128276;</span><span><strong>{item.title}</strong><small>{item.message}</small><em>{new Date(item.createdAt).toLocaleString()}</em></span></button>)}{!items.length && <div className="panel empty-wide"><h3>No notifications</h3><p className="muted">You are all caught up.</p></div>}</div>}</section>;
 }
 

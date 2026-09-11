@@ -1,7 +1,7 @@
 // FarmWise Service Worker
 // Provides offline capabilities and caching for the PWA
 
-const CACHE_NAME = 'farmwise-v2';
+const CACHE_NAME = 'farmwise-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -57,6 +57,20 @@ self.addEventListener('fetch', event => {
           { status: 503, headers: { 'Content-Type': 'application/json' } }
         );
       })
+    );
+    return;
+  }
+
+  // Always prefer the latest HTML so deployments cannot point at stale bundles.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).then(response => {
+        if (response.ok) {
+          const clonedResponse = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put('/index.html', clonedResponse));
+        }
+        return response;
+      }).catch(() => caches.match('/index.html'))
     );
     return;
   }
